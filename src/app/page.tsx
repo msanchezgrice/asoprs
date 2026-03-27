@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Filter,
@@ -112,6 +113,7 @@ function DocumentCard({
 }
 
 export default function LibraryPage() {
+  const router = useRouter();
   const { user } = useAuthSession();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | "All">("All");
@@ -121,6 +123,23 @@ export default function LibraryPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (!code) {
+      return;
+    }
+
+    params.delete("code");
+    params.delete("next");
+
+    const nextPath = params.size > 0 ? `/?${params.toString()}` : "/";
+    router.replace(
+      `/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(nextPath)}`
+    );
+  }, [router]);
 
   useEffect(() => {
     fetch("/api/documents")
