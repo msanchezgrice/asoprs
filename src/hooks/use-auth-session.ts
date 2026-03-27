@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export interface SessionUser {
   id: string;
@@ -14,6 +15,7 @@ export function useAuthSession() {
 
   useEffect(() => {
     let cancelled = false;
+    const supabase = createBrowserSupabaseClient();
 
     async function loadSession() {
       try {
@@ -36,10 +38,17 @@ export function useAuthSession() {
       }
     }
 
-    loadSession();
+    void loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void loadSession();
+    });
 
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 

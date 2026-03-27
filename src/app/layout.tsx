@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
+import { AuthSessionBootstrap } from "@/components/auth/auth-session-bootstrap";
 
 export const metadata: Metadata = {
   title: "ASOPRS Study Portal",
@@ -35,6 +36,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-[Instrument_Sans] antialiased paper-grain">
+        <AuthSessionBootstrap />
         <div className="min-h-dvh pb-20 md:pb-0 md:pl-(--sidebar-width,256px)">
           {children}
         </div>
