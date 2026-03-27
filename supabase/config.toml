@@ -1,0 +1,32 @@
+# For detailed configuration reference documentation, visit:
+# https://supabase.com/docs/guides/local-development/cli/config
+project_id = "study-portal"
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = ["./migrations/*.sql"]
+
+[auth]
+enabled = true
+site_url = "https://study-portal-hazel.vercel.app"
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000/auth/callback",
+  "https://study-portal-hazel.vercel.app/auth/callback",
+  "https://study-portal-miguel-sanchezgrices-projects.vercel.app/auth/callback",
+  "https://study-portal-enetzbyzu-miguel-sanchezgrices-projects.vercel.app/auth/callback",
+]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
