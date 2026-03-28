@@ -147,6 +147,24 @@ export function PdfReader({
     await onSaveHighlight(pageNumber, text, rects);
   }, [highlightMode, onSaveHighlight]);
 
+  if (loadingError) {
+    return (
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8"
+      >
+        <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <div className="rounded-xl border border-ivory-dark bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 shadow-sm">
+            PDF highlights save directly on the document, but this file could not be rendered in-app.
+          </div>
+          <div className="rounded-xl border border-coral/20 bg-white p-6 text-sm text-coral shadow-sm">
+            Unable to render this PDF in-app. {loadingError}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -176,12 +194,6 @@ export function PdfReader({
             setLoadingError(error.message);
           }}
         >
-          {loadingError ? (
-            <div className="rounded-xl border border-coral/20 bg-white p-6 text-sm text-coral shadow-sm">
-              Unable to render this PDF in-app. {loadingError}
-            </div>
-          ) : null}
-
           {Array.from({ length: numPages }, (_, index) => {
             const pageNumber = index + 1;
             const pageHighlights = highlightsByPage.get(pageNumber) || [];
