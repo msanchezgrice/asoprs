@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   Layers,
@@ -20,10 +21,29 @@ import { CATEGORY_META, type Category } from "@/data/sample-documents";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
-  PdfReader,
   type PdfHighlightRect,
   isPdfHighlightRectArray,
-} from "@/components/pdf/pdf-reader";
+} from "@/components/pdf/highlight-types";
+
+const PdfReader = dynamic(
+  () => import("@/components/pdf/pdf-reader").then((mod) => mod.PdfReader),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+          <div className="rounded-xl border border-ivory-dark bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 shadow-sm">
+            PDF highlights now save directly on the document.
+          </div>
+          <div className="flex items-center justify-center rounded-xl border border-ivory-dark bg-white p-12 shadow-sm">
+            <Loader2 className="h-6 w-6 animate-spin text-coral" />
+            <span className="ml-3 text-sm text-warm-gray">Loading PDF…</span>
+          </div>
+        </div>
+      </div>
+    ),
+  }
+);
 
 interface DocChunk {
   id: string;

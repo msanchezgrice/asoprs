@@ -5,18 +5,12 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Loader2 } from "lucide-react";
+import { isPdfHighlightRectArray, type PdfHighlightRect } from "./highlight-types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
-
-export interface PdfHighlightRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 export interface PdfHighlight {
   id: string;
@@ -24,21 +18,6 @@ export interface PdfHighlight {
   color: string;
   text_content: string | null;
   rects: PdfHighlightRect[];
-}
-
-export function isPdfHighlightRectArray(value: unknown): value is PdfHighlightRect[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (entry) =>
-        typeof entry === "object" &&
-        entry !== null &&
-        typeof (entry as PdfHighlightRect).x === "number" &&
-        typeof (entry as PdfHighlightRect).y === "number" &&
-        typeof (entry as PdfHighlightRect).width === "number" &&
-        typeof (entry as PdfHighlightRect).height === "number"
-    )
-  );
 }
 
 function normalizeRect(
