@@ -204,13 +204,18 @@ export default function ReaderPage({
   }, [id]);
 
   useEffect(() => {
+    if (!user) {
+      setHighlights([]);
+      return;
+    }
+
     fetch(`/api/highlights?docId=${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setHighlights(data);
       })
       .catch(() => {});
-  }, [id]);
+  }, [id, user?.id]);
 
   const saveHighlight = useCallback(
     async (chunkIndex: number, startOffset: number, endOffset: number, text: string) => {
@@ -442,9 +447,18 @@ export default function ReaderPage({
         <button
           onClick={() => {
             if (!user) {
-              setSaveNotice("Sign in to save highlights to your account.");
+              setSaveNotice("Sign in before highlighting. Anonymous highlights are not saved to your account.");
               return;
             }
+
+            if (viewMode === "pdf") {
+              setViewMode("text");
+              setHighlightMode(true);
+              setSaveNotice("Saved highlights work in Text View. Markup inside the PDF viewer is not synced.");
+              return;
+            }
+
+            setSaveNotice(null);
             setHighlightMode(!highlightMode);
           }}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
@@ -490,6 +504,9 @@ export default function ReaderPage({
         <div className="flex flex-1 flex-col min-w-0">
           {viewMode === "pdf" && pdfSrc ? (
             <div className="flex-1 bg-ivory-dark/50">
+              <div className="border-b border-ivory-dark bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
+                The embedded PDF is read-only for saved markup. Switch to Text View to create highlights that persist to your account.
+              </div>
               <iframe
                 src={`${pdfSrc}#toolbar=1&navpanes=0&view=FitH`}
                 className="h-full w-full border-0"
