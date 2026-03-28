@@ -19,6 +19,11 @@ import {
 import { CATEGORY_META, type Category } from "@/data/sample-documents";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import {
+  PdfReader,
+  type PdfHighlightRect,
+  isPdfHighlightRectArray,
+} from "@/components/pdf/pdf-reader";
 
 interface DocChunk {
   id: string;
@@ -49,7 +54,9 @@ interface Highlight {
   page_number: number;
   color: string;
   text_content: string | null;
-  rects: { chunkIndex: number; startOffset: number; endOffset: number };
+  rects:
+    | { chunkIndex: number; startOffset: number; endOffset: number }
+    | PdfHighlightRect[];
   created_at: string;
 }
 
@@ -71,7 +78,10 @@ function HighlightedText({
   highlights: Highlight[];
 }) {
   const chunkHighlights = highlights
-    .filter((h) => h.rects.chunkIndex === chunkIndex)
+    .filter(
+      (h): h is Highlight & { rects: { chunkIndex: number; startOffset: number; endOffset: number } } =>
+        !isPdfHighlightRectArray(h.rects) && h.rects.chunkIndex === chunkIndex
+    )
     .sort((a, b) => a.rects.startOffset - b.rects.startOffset);
 
   if (chunkHighlights.length === 0) {
@@ -245,6 +255,38 @@ export default function ReaderPage({
       }
     },
     [id, highlightColor, user]
+  );
+
+  const savePdfHighlight = useCallback(
+    async (pageNumber: number, text: string, rects: PdfHighlightRect[]) => {
+      if (!user) {
+        setSaveNotice("Sign in to save highlights to your account.");
+        return;
+      }
+
+      const res = await fetch("/api/highlights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document_id: id,
+          page_number: pageNumber,
+          color: highlightColor,
+          text_content: text,
+          rects,
+        }),
+      });
+
+      if (res.status === 401) {
+        setSaveNotice("Sign in to save highlights to your account.");
+        return;
+      }
+
+      const highlight = await res.json();
+      if (highlight.id) {
+        setHighlights((prev) => [...prev, highlight]);
+      }
+    },
+    [highlightColor, id, user]
   );
 
   const deleteHighlight = useCallback(async (hlId: string) => {
@@ -451,13 +493,6 @@ export default function ReaderPage({
               return;
             }
 
-            if (viewMode === "pdf") {
-              setViewMode("text");
-              setHighlightMode(true);
-              setSaveNotice("Saved highlights work in Text View. Markup inside the PDF viewer is not synced.");
-              return;
-            }
-
             setSaveNotice(null);
             setHighlightMode(!highlightMode);
           }}
@@ -503,16 +538,23 @@ export default function ReaderPage({
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col min-w-0">
           {viewMode === "pdf" && pdfSrc ? (
-            <div className="flex-1 bg-ivory-dark/50">
-              <div className="border-b border-ivory-dark bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
-                The embedded PDF is read-only for saved markup. Switch to Text View to create highlights that persist to your account.
-              </div>
-              <iframe
-                src={`${pdfSrc}#toolbar=1&navpanes=0&view=FitH`}
-                className="h-full w-full border-0"
-                title={doc.title}
-              />
-            </div>
+            <PdfReader
+              url={pdfSrc}
+              highlights={highlights
+                .filter(
+                  (highlight): highlight is Highlight & { rects: PdfHighlightRect[] } =>
+                    isPdfHighlightRectArray(highlight.rects)
+                )
+                .map((highlight) => ({
+                  id: highlight.id,
+                  page_number: highlight.page_number,
+                  color: highlight.color,
+                  text_content: highlight.text_content,
+                  rects: highlight.rects,
+                }))}
+              highlightMode={highlightMode}
+              onSaveHighlight={savePdfHighlight}
+            />
           ) : (
             <div className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8" ref={contentRef}>
               <div className={`mx-auto max-w-3xl space-y-6 ${highlightMode ? "cursor-text select-text" : ""}`}>
