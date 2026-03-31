@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:image-flashcards": "tsx scripts/generate-image-flashcards.ts"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",

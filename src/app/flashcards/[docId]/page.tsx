@@ -14,6 +14,7 @@ import {
   Maximize2,
   Trash2,
   Loader2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
@@ -66,6 +67,14 @@ export default function FlashcardPage({
   const [showResults, setShowResults] = useState(false);
   const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const imageDeckHref = doc?.title
+    ? `/flashcards/images?doc=${encodeURIComponent(
+        doc.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+      )}`
+    : "/flashcards/images";
 
   const filteredCards = difficulty === "all" ? allCards : allCards.filter(c => c.difficulty === difficulty);
   const card = filteredCards[currentIndex];
@@ -244,6 +253,13 @@ export default function FlashcardPage({
         </div>
 
         <div className="flex items-center gap-1">
+          <Link
+            href={imageDeckHref}
+            className="rounded px-2 py-2 text-warm-gray hover:bg-ivory hover:text-navy"
+            title="Open image deck"
+          >
+            <ImageIcon size={16} />
+          </Link>
           <button
             onClick={shuffleCards}
             className="rounded p-2 text-warm-gray hover:bg-ivory hover:text-navy"

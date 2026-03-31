@@ -19,6 +19,12 @@ import {
   type Document,
 } from "@/data/sample-documents";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import {
+  getAsoprsSortIndex,
+  LIBRARY_PREFS_KEY,
+  type LayoutMode,
+  type SortMode,
+} from "@/lib/library-order";
 
 const ALL_CATEGORIES: (Category | "All")[] = [
   "All",
@@ -123,6 +129,36 @@ export default function LibraryPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<string[] | null>(null);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() => {
+    if (typeof window === "undefined") return "grouped";
+    try {
+      const raw = window.localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return "grouped";
+      const parsed = JSON.parse(raw) as Partial<{ layoutMode: LayoutMode }>;
+      return parsed.layoutMode === "dense" ? "dense" : "grouped";
+    } catch {
+      return "grouped";
+    }
+  });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    if (typeof window === "undefined") return "title";
+    try {
+      const raw = window.localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (!raw) return "title";
+      const parsed = JSON.parse(raw) as Partial<{ sortMode: SortMode }>;
+      if (
+        parsed.sortMode === "title" ||
+        parsed.sortMode === "category" ||
+        parsed.sortMode === "pages" ||
+        parsed.sortMode === "asoprs"
+      ) {
+        return parsed.sortMode;
+      }
+      return "title";
+    } catch {
+      return "title";
+    }
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -140,6 +176,14 @@ export default function LibraryPage() {
       `/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(nextPath)}`
     );
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      LIBRARY_PREFS_KEY,
+      JSON.stringify({ layoutMode, sortMode })
+    );
+  }, [layoutMode, sortMode]);
 
   useEffect(() => {
     fetch("/api/documents")
@@ -195,6 +239,28 @@ export default function LibraryPage() {
     if (search && !doc.title.toLowerCase().includes(search.toLowerCase()))
       return false;
     return true;
+  });
+
+  const denseDocs = [...filtered].sort((a, b) => {
+    if (sortMode === "asoprs") {
+      const aIndex = getAsoprsSortIndex(a.title);
+      const bIndex = getAsoprsSortIndex(b.title);
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return a.title.localeCompare(b.title);
+    }
+
+    if (sortMode === "category") {
+      const categoryCmp = a.category.localeCompare(b.category);
+      if (categoryCmp !== 0) return categoryCmp;
+      return a.title.localeCompare(b.title);
+    }
+
+    if (sortMode === "pages") {
+      if (b.pageCount !== a.pageCount) return b.pageCount - a.pageCount;
+      return a.title.localeCompare(b.title);
+    }
+
+    return a.title.localeCompare(b.title);
   });
 
   const totalCards = allDocs.reduce((s, d) => s + d.flashcardCount, 0);
@@ -317,6 +383,47 @@ export default function LibraryPage() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setLayoutMode("grouped")}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+              layoutMode === "grouped"
+                ? "bg-navy text-white"
+                : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+            }`}
+          >
+            Card Grid
+          </button>
+          <button
+            onClick={() => setLayoutMode("dense")}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+              layoutMode === "dense"
+                ? "bg-navy text-white"
+                : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+            }`}
+          >
+            Dense List
+          </button>
+        </div>
+
+        {layoutMode === "dense" && (
+          <label className="flex items-center gap-2 text-xs font-medium text-warm-gray">
+            Sort
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="rounded-full border border-ivory-dark bg-white px-3 py-1.5 text-xs text-navy outline-none transition focus:border-coral"
+            >
+              <option value="title">Alphabetical</option>
+              <option value="asoprs">ASOPRS Index</option>
+              <option value="category">Category</option>
+              <option value="pages">Longest First</option>
+            </select>
+          </label>
+        )}
+      </div>
+
       {/* Category pills (mobile horizontal scroll) */}
       <div className="mb-4 flex gap-2 overflow-x-auto hide-scrollbar md:hidden">
         {ALL_CATEGORIES.map((cat) => (
@@ -340,12 +447,65 @@ export default function LibraryPage() {
         {searchResults && <span className="text-coral ml-2">(semantic search results)</span>}
       </p>
 
-      {/* Document grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((doc, i) => (
-          <DocumentCard key={doc.id} doc={doc} index={i} />
-        ))}
-      </div>
+      {layoutMode === "dense" ? (
+        <div className="overflow-hidden rounded-2xl border border-ivory-dark bg-white">
+          {denseDocs.map((doc, index) => {
+            const pdfLink = getPdfUrl(doc.storagePath);
+            const cat = CATEGORY_META[doc.category];
+
+            return (
+              <div
+                key={doc.id}
+                className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-2.5 ${
+                  index !== denseDocs.length - 1 ? "border-b border-ivory-dark" : ""
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/read/${doc.id}`}
+                      className="truncate text-sm font-medium text-navy hover:text-coral"
+                    >
+                      {doc.title}
+                    </Link>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${cat.bg} ${cat.color}`}
+                    >
+                      {doc.category}
+                    </span>
+                    <span className="text-[11px] text-warm-gray">{doc.pageCount} pages</span>
+                    <span className="text-[11px] text-warm-gray">{doc.flashcardCount} cards</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {pdfLink && (
+                    <a
+                      href={pdfLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-navy/5 px-2 py-1 text-[11px] font-medium text-navy transition-colors hover:bg-navy/10"
+                    >
+                      PDF
+                    </a>
+                  )}
+                  <Link
+                    href={`/read/${doc.id}`}
+                    className="rounded-md bg-ivory px-2 py-1 text-[11px] font-medium text-warm-gray transition-colors hover:bg-ivory-dark hover:text-navy"
+                  >
+                    Read
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((doc, i) => (
+            <DocumentCard key={doc.id} doc={doc} index={i} />
+          ))}
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="py-20 text-center">

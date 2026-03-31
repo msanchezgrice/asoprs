@@ -9,6 +9,7 @@ import {
   MessageSquare,
   BarChart3,
   GitFork,
+  Image,
 } from "lucide-react";
 import { AccountPanel } from "@/components/auth/account-panel";
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Library", icon: Library },
   { href: "/index", label: "Index", icon: List },
   { href: "/mindmap", label: "Mind Map", icon: GitFork },
+  { href: "/flashcards/images", label: "Images", icon: Image },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/progress", label: "Progress", icon: BarChart3 },
 ];
