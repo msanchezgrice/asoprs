@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Send,
   BookOpen,
@@ -12,7 +12,13 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  sources?: { doc: string; page: number }[];
+  sources?: { doc: string; page: string }[];
+}
+
+interface DocOption {
+  id: string;
+  title: string;
+  category: string;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -28,6 +34,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [scope, setScope] = useState<"all" | "single">("all");
+  const [docs, setDocs] = useState<DocOption[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState("");
   const [docCount, setDocCount] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -37,10 +45,28 @@ export default function ChatPage() {
       .then((r) => r.json())
       .then((d) => setDocCount(d.documents || 0))
       .catch(() => {});
+
+    fetch("/api/documents/all")
+      .then((r) => r.json())
+      .then((data) => {
+        const nextDocs = Array.isArray(data) ? data : [];
+        setDocs(nextDocs);
+        if (nextDocs[0]?.id) {
+          setSelectedDocId(nextDocs[0].id);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const selectedDoc = useMemo(
+    () => docs.find((doc) => doc.id === selectedDocId) ?? null,
+    [docs, selectedDocId]
+  );
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+    if (scope === "single" && !selectedDocId) return;
+
     const userMsg: Message = {
       id: `u-${Date.now()}`,
       role: "user",
@@ -54,7 +80,10 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({
+          message: input,
+          documentId: scope === "single" ? selectedDocId : undefined,
+        }),
       });
       const data = await res.json();
 
@@ -62,10 +91,15 @@ export default function ChatPage() {
         id: `a-${Date.now()}`,
         role: "assistant",
         content: data.answer || data.error || "Sorry, I couldn't generate a response.",
-        sources: data.sources?.map((s: { title: string }) => ({
+        sources: data.sources?.map(
+          (s: { title: string; page_start?: number | null; page_end?: number | null }) => ({
           doc: s.title,
-          page: 1,
-        })),
+          page:
+            s.page_start && s.page_end && s.page_start !== s.page_end
+              ? `${s.page_start}-${s.page_end}`
+              : `${s.page_start || 1}`,
+        })
+        ),
       };
       setMessages((prev) => [...prev, botMsg]);
     } catch {
@@ -93,7 +127,9 @@ export default function ChatPage() {
                 AI Study Assistant
               </h1>
               <p className="mt-1 text-xs text-warm-gray">
-                Ask questions grounded in your {docCount ?? "…"} ASOPRS documents
+                {scope === "single" && selectedDoc
+                  ? `Ask questions grounded in ${selectedDoc.title}`
+                  : `Ask questions grounded in your ${docCount ?? "…"} ASOPRS documents`}
               </p>
             </div>
             <div className="flex rounded-lg border border-ivory-dark p-0.5">
@@ -119,6 +155,24 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
+          {scope === "single" && (
+            <div className="mt-3">
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.16em] text-warm-gray">
+                Topic
+              </label>
+              <select
+                value={selectedDocId}
+                onChange={(e) => setSelectedDocId(e.target.value)}
+                className="w-full rounded-xl border border-ivory-dark bg-ivory/40 px-3 py-2.5 text-sm text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/20"
+              >
+                {docs.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title} ({doc.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </header>
 
@@ -134,9 +188,9 @@ export default function ChatPage() {
                 Ask anything about ASOPRS
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-warm-gray">
-                Your AI assistant has access to all {docCount ?? "…"} documents. Ask questions
-                about diagnoses, surgical techniques, management, or anything
-                from the board review material.
+                {scope === "single" && selectedDoc
+                  ? `Your AI assistant is focused on ${selectedDoc.title}. Ask narrower questions and it will stay within that topic.`
+                  : `Your AI assistant has access to all ${docCount ?? "…"} documents. Ask questions about diagnoses, surgical techniques, management, or anything from the board review material.`}
               </p>
 
               <div className="mx-auto mt-8 grid max-w-xl gap-2 sm:grid-cols-2">
@@ -229,8 +283,9 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="mt-2 text-center text-[10px] text-warm-gray-light">
-            Responses are grounded in your ASOPRS documents. Always verify with
-            primary sources.
+            {scope === "single" && selectedDoc
+              ? `Responses are scoped to ${selectedDoc.title}. Always verify with primary sources.`
+              : "Responses are grounded in your ASOPRS documents. Always verify with primary sources."}
           </p>
         </div>
       </div>

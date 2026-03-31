@@ -16,6 +16,7 @@ import {
 import { CATEGORY_META, type Category } from "@/data/sample-documents";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const LIBRARY_PREFS_KEY = "asoprs-library-preferences";
 
 interface Doc {
   id: string;
@@ -27,6 +28,168 @@ interface Doc {
   mcq_count: number;
 }
 
+type ViewMode = "category" | "alpha";
+type LayoutMode = "grouped" | "dense";
+type SortMode = "title" | "category" | "pages" | "asoprs";
+
+const ASOPRS_INDEX_PATTERNS = [
+  "Acquired Laxity",
+  "Blepharochalasis",
+  "Floppy Eyelid",
+  "Horizontal Eyelid Tightening",
+  "Lateral and Medial Canthoplasty",
+  "Lower Eyelid Blepharoplasty",
+  "Periorbital Hollows",
+  "Upper Eyelid Blepharoplasty",
+  "Aponeurotic Ptosis",
+  "Myogenic Ptosis",
+  "External (Transcutaneous) Levator Advancement",
+  "Frontalis Suspension",
+  "Internal (Transconjunctival) Levator-Mullers Muscle Resection",
+  "Marcus Gunn Jaw-Winking Syndrome",
+  "Eyelid Pediatric Ptosis",
+  "Traumatic Ptosis",
+  "Brow Lift",
+  "Cicatricial Entropion",
+  "Congenital Entropion",
+  "Epiblepharon",
+  "Involutional or Senile Entropion",
+  "Ocular Cicatricial Pemphigoid, Drug-Induced Pemphigoid, and Stevens-Johnson Syndrome",
+  "Spastic Entropion",
+  "Trachoma",
+  "Trichiasis",
+  "Reconstructing Large Defects Involving Forehead, Cheeks",
+  "Reconstruction of Lower Eyelid Defects Involving the Margin",
+  "Reconstruction of Medial and Lateral Canthal Defects",
+  "Mohs Micrographic Surgery",
+  "Periocular Burns",
+  "Upper Eyelid Reconstruction Involving Eyelid Margin",
+  "Eyelid Retraction",
+  "Acne Rosacea",
+  "Blepharitis, Meibomitis, and Hordeola",
+  "Eyelid Degenerative and Inflammatory Disorders",
+  "Eyelid edema",
+  "Milia",
+  "Chronic plaque psoriasis",
+  "Spontaneous urticaria and angioedema",
+  "Vitiligo",
+  "Erysipelas",
+  "Periorbital Herpes Zoster",
+  "Molluscum Contagiosum",
+  "Periocular Herpes simplex virus (HSV)",
+  "Generalized staphylococcal scalded skin syndrome",
+  "Tinea faciei",
+  "Benign Melanotic Skin Lesions",
+  "Benign Eyelid Neoplasia",
+  "Conjunctival Epithelial Malignancies",
+  "Conjunctival Melanoma",
+  "Actinic Keratosis",
+  "Basal Cell Carcinoma",
+  "Basal Cell Nevus Syndrome (Gorlin-Goltz Syndrome)",
+  "Keratoacanthoma of the Eyelid",
+  "Squamous Cell Carcinoma of the Eyelid",
+  "Lentigo Maligna, Lentigo Maligna Melanoma, and Melanocytic Hyperplasia",
+  "Merkel Cell Carcinoma",
+  "Microcystic Adnexal Carcinoma",
+  "Sebaceous Adenocarcinoma",
+  "Anatomy of the External Ear",
+  "Facial implants",
+  "Necklift (Platysmaplasty)",
+  "Otoplasty and Earlobe Surgery",
+  "Rhinoplasty",
+  "Rhytidectomy (Facelift)",
+  "Botulinum Toxin in Facial Aesthetics",
+  "Chemical Peels",
+  "Soft-Tissue Fillers",
+  "Lasers and Energy-Based Treatments for Cosmetic Improvement and Skin Rejuvenation",
+  "Benign Essential Blepharospasm",
+  "Facial Nerve Palsy",
+  "Giant Cell Arteritis and Temporal Artery Biopsy",
+  "Hemifacial Spasm",
+  "Horner Syndrome",
+  "Idiopathic Intracranial Hypertension",
+  "Melkersson-Rosenthal Syndrome",
+  "Myasthenia Gravis",
+  "CDCR with Jones Tube",
+  "Congenital Lacrimal Dysgenesis",
+  "Canalicular Infections and Inflammation",
+  "Canalicular Obstruction",
+  "Acquired Nasolacrimal Duct Obstruction",
+  "Congenital Nasolacrimal Duct Obstruction (NLDO)",
+  "Dacryocystocele (amniotocele)",
+  "Dacryocystectomy",
+  "Ectrodactyly-ectodermal dysplasia-cleft syndrome (EEC Syndrome)",
+  "Endoscopic, Endonasal, or Transnasal Dacryocystorhinostomy (EndoDCR)",
+  "Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora",
+  "Paranasal Sinus Anatomy and Physiology",
+  "Silicone Intubation of Nasolacrimal Drainage System",
+  "History and Examination for Orbital Pathology",
+  "Corneal Neurotization",
+  "The Challenging Anophthalmic Socket",
+  "Enucleation and Evisceration",
+  "Eosinophilic orbital disease",
+  "Granulomatosis with Polyangiitis (Wegener’s Granulomatosis)",
+  "Idiopathic Orbital Inflammation",
+  "IgG4-Related Disease",
+  "Orbital and Ocular Adnexal Sarcoidosis",
+  "Adult Orbital Xanthogranulomatous Disease",
+  "Adenoid Cystic Carcinoma of the Lacrimal Gland",
+  "Dacryops",
+  "Malignant Mixed Tumor of the Lacrimal Gland",
+  "Pleomorphic adenoma",
+  "Optic Nerve Sheath Meningioma",
+  "Schwannoma (Neurilemoma)",
+  "Spheno-Orbital Meningioma (Sphenoid Wing Meningioma)",
+  "Anophthalmos, Microphthalmos, and Congenital Socket Malformations",
+  "Craniosynostosis Syndromes",
+  "Dermoid Cysts",
+  "Dermolipoma",
+  "Genetics for the Oculofacial and Orbital Surgeon",
+  "Orbital Meningocele, Encephalocele, and Meningoencephalocele",
+  "Intraorbital Foreign Bodies",
+  "Late Post-Traumatic Enophthalmos",
+  "Le Fort Fractures",
+  "Mandible Fractures",
+  "Medial Orbital Wall Fractures",
+  "Newer Orbital Implants",
+  "Naso-Orbital Ethmoid Fractures",
+  "Orbital Floor Fractures",
+  "Orbital Hemorrhage",
+  "Orbital Apex and Roof Fractures",
+  "Sinus Mucocele",
+  "Zygomatic maxillary complex (ZMC) fractures",
+  "Fibrous Histiocytoma",
+  "Orbital Rhabdomyosarcoma",
+  "Uncommon Orbital Lesions- Solitary Fibrous Tumors",
+  "Allergic Fungal Sinusitis",
+  "Aspergillosis",
+  "Phycomycosis (Zygomycosis, Mucormycosis)",
+  "Bacterial Orbital Cellulitis",
+  "Methicillin-Resistant Staphylococcus Aureus (MRSA)",
+  "Necrotizing Fasciitis",
+  "Palpebral Orbital Ophthalmomyiasis",
+  "The Enophthalmos Syndromes",
+  "Repair of Traumatic Telecanthus",
+  "Ocular Adnexal Follicular Lymphoma",
+  "Ocular Adnexal MALT Lymphoma",
+  "Mantle Cell Lymphoma",
+  "Metastatic Tumors of the Orbit",
+  "Plasma Cell Tumors of the Orbit and Periocular Region",
+  "Rosai-Dorfman Disease",
+  "Endoscopic orbital surgery",
+  "Surgical Approaches to the Orbit",
+  "Nonsurgical Management of Thyroid Eye Disease",
+  "Orbital Decompression in Thyroid Eye Disease",
+  "Pathogenesis of Thyroid Eye Disease",
+  "Cavernous Malformation",
+  "Carotid Cavernous Sinus Fistula",
+  "Infantile Hemangioma",
+  "Lymphangioma",
+  "Orbital varix",
+  "Artificial Intelligence in Ophthalmic Plastic and Reconstructive Surgery",
+  "Environmental Sustainability in Ophthalmic Plastic and Reconstructive Surgery",
+].map((pattern) => pattern.toLowerCase());
+
 function pdfUrl(storagePath: string | null): string | null {
   if (!storagePath) return null;
   return `${SUPABASE_URL}/storage/v1/object/public/pdfs/${encodeURIComponent(storagePath).replace(/%2F/g, "/")}`;
@@ -37,9 +200,40 @@ export default function IndexPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<"category" | "alpha">("category");
+  const [viewMode, setViewMode] = useState<ViewMode>("category");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("grouped");
+  const [sortMode, setSortMode] = useState<SortMode>("title");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPrefs = window.localStorage.getItem(LIBRARY_PREFS_KEY);
+      if (savedPrefs) {
+        try {
+          const parsed = JSON.parse(savedPrefs) as Partial<{
+            viewMode: ViewMode;
+            layoutMode: LayoutMode;
+            sortMode: SortMode;
+          }>;
+          if (parsed.viewMode === "category" || parsed.viewMode === "alpha") {
+            setViewMode(parsed.viewMode);
+          }
+          if (parsed.layoutMode === "grouped" || parsed.layoutMode === "dense") {
+            setLayoutMode(parsed.layoutMode);
+          }
+          if (
+            parsed.sortMode === "title" ||
+            parsed.sortMode === "category" ||
+            parsed.sortMode === "pages" ||
+            parsed.sortMode === "asoprs"
+          ) {
+            setSortMode(parsed.sortMode);
+          }
+        } catch {
+          window.localStorage.removeItem(LIBRARY_PREFS_KEY);
+        }
+      }
+    }
+
     fetch("/api/documents/all")
       .then((r) => r.json())
       .then((data) => {
@@ -48,6 +242,14 @@ export default function IndexPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      LIBRARY_PREFS_KEY,
+      JSON.stringify({ viewMode, layoutMode, sortMode })
+    );
+  }, [viewMode, layoutMode, sortMode]);
 
   const filtered = useMemo(() => {
     if (!search) return docs;
@@ -75,6 +277,38 @@ export default function IndexPage() {
     }
     return groups;
   }, [filtered, viewMode]);
+
+  const denseDocs = useMemo(() => {
+    const indexOfTitle = (title: string) => {
+      const normalized = title.toLowerCase();
+      const index = ASOPRS_INDEX_PATTERNS.findIndex(
+        (pattern) => normalized.includes(pattern) || pattern.includes(normalized)
+      );
+      return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+
+    return [...filtered].sort((a, b) => {
+      if (sortMode === "asoprs") {
+        const aIndex = indexOfTitle(a.title);
+        const bIndex = indexOfTitle(b.title);
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.title.localeCompare(b.title);
+      }
+
+      if (sortMode === "category") {
+        const categoryCmp = a.category.localeCompare(b.category);
+        if (categoryCmp !== 0) return categoryCmp;
+        return a.title.localeCompare(b.title);
+      }
+
+      if (sortMode === "pages") {
+        if (b.page_count !== a.page_count) return b.page_count - a.page_count;
+        return a.title.localeCompare(b.title);
+      }
+
+      return a.title.localeCompare(b.title);
+    });
+  }, [filtered, sortMode]);
 
   const sortedKeys = useMemo(() => {
     if (viewMode === "category") {
@@ -115,7 +349,7 @@ export default function IndexPage() {
       </header>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
+      <div className="mb-6 flex flex-col gap-3">
         <div className="relative flex-1">
           <Search
             size={18}
@@ -130,147 +364,241 @@ export default function IndexPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewMode("category")}
-            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-              viewMode === "category"
-                ? "bg-navy text-white"
-                : "bg-ivory text-warm-gray hover:bg-ivory-dark"
-            }`}
-          >
-            By Category
-          </button>
-          <button
-            onClick={() => setViewMode("alpha")}
-            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-              viewMode === "alpha"
-                ? "bg-navy text-white"
-                : "bg-ivory text-warm-gray hover:bg-ivory-dark"
-            }`}
-          >
-            A-Z
-          </button>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setLayoutMode("grouped")}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                layoutMode === "grouped"
+                  ? "bg-navy text-white"
+                  : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+              }`}
+            >
+              Grouped
+            </button>
+            <button
+              onClick={() => setLayoutMode("dense")}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                layoutMode === "dense"
+                  ? "bg-navy text-white"
+                  : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+              }`}
+            >
+              Dense List
+            </button>
+            {layoutMode === "grouped" && (
+              <>
+                <button
+                  onClick={() => setViewMode("category")}
+                  className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                    viewMode === "category"
+                      ? "bg-coral text-white"
+                      : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+                  }`}
+                >
+                  By Category
+                </button>
+                <button
+                  onClick={() => setViewMode("alpha")}
+                  className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                    viewMode === "alpha"
+                      ? "bg-coral text-white"
+                      : "bg-ivory text-warm-gray hover:bg-ivory-dark"
+                  }`}
+                >
+                  A-Z
+                </button>
+              </>
+            )}
+          </div>
+
+          {layoutMode === "dense" && (
+            <label className="flex items-center gap-2 text-xs font-medium text-warm-gray">
+              Sort
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="rounded-full border border-ivory-dark bg-white px-3 py-1.5 text-xs text-navy outline-none transition focus:border-coral"
+              >
+                <option value="title">Alphabetical</option>
+                <option value="asoprs">ASOPRS Index</option>
+                <option value="category">Category</option>
+                <option value="pages">Longest First</option>
+              </select>
+            </label>
+          )}
         </div>
       </div>
 
       {/* Document groups */}
-      <div className="space-y-6">
-        {sortedKeys.map((key) => {
-          const items = grouped[key];
-          const isCollapsed = collapsed[key];
-          const meta =
-            viewMode === "category"
-              ? CATEGORY_META[key as Category]
-              : null;
+      {layoutMode === "dense" ? (
+        <div className="overflow-hidden rounded-2xl border border-ivory-dark bg-white">
+          {denseDocs.map((doc, index) => {
+            const pdf = pdfUrl(doc.storage_path);
+            const meta = CATEGORY_META[doc.category];
 
-          return (
-            <section key={key}>
-              <button
-                onClick={() => toggle(key)}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-ivory/50"
+            return (
+              <div
+                key={doc.id}
+                className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-2.5 ${
+                  index !== denseDocs.length - 1 ? "border-b border-ivory-dark" : ""
+                }`}
               >
-                {isCollapsed ? (
-                  <ChevronRight size={18} className="text-warm-gray shrink-0" />
-                ) : (
-                  <ChevronDown size={18} className="text-warm-gray shrink-0" />
-                )}
-                <div className="flex items-center gap-2">
-                  {meta && (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-semibold ${meta.bg} ${meta.color}`}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/read/${doc.id}`}
+                      className="truncate text-sm font-medium text-navy hover:text-coral"
                     >
-                      {meta.icon} {key}
+                      {doc.title}
+                    </Link>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.bg} ${meta.color}`}
+                    >
+                      {doc.category}
                     </span>
-                  )}
-                  {!meta && (
-                    <span className="text-sm font-bold text-navy">{key}</span>
-                  )}
-                  <span className="rounded-full bg-ivory px-2 py-0.5 text-[10px] font-semibold text-warm-gray">
-                    {items.length}
-                  </span>
+                    <span className="text-[11px] text-warm-gray">{doc.page_count} pages</span>
+                  </div>
                 </div>
-              </button>
+                <div className="flex items-center gap-1.5">
+                  {pdf && (
+                    <a
+                      href={pdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-navy/5 px-2 py-1 text-[11px] font-medium text-navy transition-colors hover:bg-navy/10"
+                    >
+                      PDF
+                    </a>
+                  )}
+                  <Link
+                    href={`/read/${doc.id}`}
+                    className="rounded-md bg-ivory px-2 py-1 text-[11px] font-medium text-warm-gray transition-colors hover:bg-ivory-dark hover:text-navy"
+                  >
+                    Read
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {sortedKeys.map((key) => {
+            const items = grouped[key];
+            const isCollapsed = collapsed[key];
+            const meta =
+              viewMode === "category"
+                ? CATEGORY_META[key as Category]
+                : null;
 
-              {!isCollapsed && (
-                <div className="mt-1 ml-3 border-l-2 border-ivory-dark pl-4">
-                  {items.map((doc) => {
-                    const pdf = pdfUrl(doc.storage_path);
-                    return (
-                      <div
-                        key={doc.id}
-                        className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-ivory/50"
+            return (
+              <section key={key}>
+                <button
+                  onClick={() => toggle(key)}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-ivory/50"
+                >
+                  {isCollapsed ? (
+                    <ChevronRight size={18} className="text-warm-gray shrink-0" />
+                  ) : (
+                    <ChevronDown size={18} className="text-warm-gray shrink-0" />
+                  )}
+                  <div className="flex items-center gap-2">
+                    {meta && (
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${meta.bg} ${meta.color}`}
                       >
-                        <FileText
-                          size={16}
-                          className="shrink-0 text-warm-gray group-hover:text-navy"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <Link
-                            href={`/read/${doc.id}`}
-                            className="block truncate text-sm font-medium text-navy hover:text-coral"
-                          >
-                            {doc.title}
-                          </Link>
-                          <p className="text-[11px] text-warm-gray">
-                            {doc.page_count} pages
-                          </p>
-                        </div>
+                        {meta.icon} {key}
+                      </span>
+                    )}
+                    {!meta && (
+                      <span className="text-sm font-bold text-navy">{key}</span>
+                    )}
+                    <span className="rounded-full bg-ivory px-2 py-0.5 text-[10px] font-semibold text-warm-gray">
+                      {items.length}
+                    </span>
+                  </div>
+                </button>
 
-                        <div className="hidden items-center gap-1.5 sm:flex">
-                          {pdf && (
-                            <a
-                              href={pdf}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 rounded-md bg-navy/5 px-2 py-1 text-[11px] font-medium text-navy transition-colors hover:bg-navy/10"
-                              title="Open original PDF"
+                {!isCollapsed && (
+                  <div className="mt-1 ml-3 border-l-2 border-ivory-dark pl-4">
+                    {items.map((doc) => {
+                      const pdf = pdfUrl(doc.storage_path);
+                      return (
+                        <div
+                          key={doc.id}
+                          className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-ivory/50"
+                        >
+                          <FileText
+                            size={16}
+                            className="shrink-0 text-warm-gray group-hover:text-navy"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <Link
+                              href={`/read/${doc.id}`}
+                              className="block truncate text-sm font-medium text-navy hover:text-coral"
                             >
-                              <ExternalLink size={12} /> PDF
-                            </a>
-                          )}
-                          <Link
-                            href={`/read/${doc.id}`}
-                            className="flex items-center gap-1 rounded-md bg-ivory px-2 py-1 text-[11px] font-medium text-warm-gray transition-colors hover:bg-ivory-dark hover:text-navy"
-                          >
-                            <BookOpen size={12} /> Read
-                          </Link>
-                          <Link
-                            href={`/flashcards/${doc.id}`}
-                            className="flex items-center gap-1 rounded-md bg-coral/10 px-2 py-1 text-[11px] font-medium text-coral transition-colors hover:bg-coral/20"
-                          >
-                            <Layers size={12} /> Cards
-                          </Link>
-                          <Link
-                            href={`/quiz/${doc.id}`}
-                            className="flex items-center gap-1 rounded-md bg-sage/10 px-2 py-1 text-[11px] font-medium text-sage-dark transition-colors hover:bg-sage/20"
-                          >
-                            <ClipboardList size={12} /> Quiz
-                          </Link>
-                        </div>
+                              {doc.title}
+                            </Link>
+                            <p className="text-[11px] text-warm-gray">
+                              {doc.page_count} pages
+                            </p>
+                          </div>
 
-                        {/* Mobile: just PDF + Read links */}
-                        <div className="flex items-center gap-1.5 sm:hidden">
-                          {pdf && (
-                            <a
-                              href={pdf}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-md bg-navy/5 p-1.5 text-navy"
+                          <div className="hidden items-center gap-1.5 sm:flex">
+                            {pdf && (
+                              <a
+                                href={pdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 rounded-md bg-navy/5 px-2 py-1 text-[11px] font-medium text-navy transition-colors hover:bg-navy/10"
+                                title="Open original PDF"
+                              >
+                                <ExternalLink size={12} /> PDF
+                              </a>
+                            )}
+                            <Link
+                              href={`/read/${doc.id}`}
+                              className="flex items-center gap-1 rounded-md bg-ivory px-2 py-1 text-[11px] font-medium text-warm-gray transition-colors hover:bg-ivory-dark hover:text-navy"
                             >
-                              <ExternalLink size={14} />
-                            </a>
-                          )}
+                              <BookOpen size={12} /> Read
+                            </Link>
+                            <Link
+                              href={`/flashcards/${doc.id}`}
+                              className="flex items-center gap-1 rounded-md bg-coral/10 px-2 py-1 text-[11px] font-medium text-coral transition-colors hover:bg-coral/20"
+                            >
+                              <Layers size={12} /> Cards
+                            </Link>
+                            <Link
+                              href={`/quiz/${doc.id}`}
+                              className="flex items-center gap-1 rounded-md bg-sage/10 px-2 py-1 text-[11px] font-medium text-sage-dark transition-colors hover:bg-sage/20"
+                            >
+                              <ClipboardList size={12} /> Quiz
+                            </Link>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 sm:hidden">
+                            {pdf && (
+                              <a
+                                href={pdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-md bg-navy/5 p-1.5 text-navy"
+                              >
+                                <ExternalLink size={14} />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          );
-        })}
-      </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="py-20 text-center">
