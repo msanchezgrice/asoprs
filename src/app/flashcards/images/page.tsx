@@ -22,6 +22,14 @@ type ImageFlashcard = {
   storagePath: string;
   figureLabel: string;
   pageNumber: number;
+  pageWidth: number;
+  pageHeight: number;
+  crop: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  };
   caption: string;
   references: string[];
 };
@@ -207,27 +215,19 @@ export default function ImageFlashcardsPage() {
           >
             <div className="overflow-hidden rounded-2xl border border-ivory-dark bg-white shadow-sm">
               {!isFlipped ? (
-                <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-between border-b border-ivory-dark px-4 py-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
-                        {card.figureLabel}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-navy">{card.documentTitle}</p>
-                    </div>
-                    <div className="rounded-full bg-coral/10 px-3 py-1 text-xs font-semibold text-coral">
-                      Page {card.pageNumber}
-                    </div>
-                  </div>
-                  <div ref={previewRef} className="flex flex-1 items-center justify-center bg-ivory/40 p-4">
+                <div className="flex h-full flex-col bg-[#f8f4ed]">
+                  <div ref={previewRef} className="flex flex-1 items-center justify-center p-4 md:p-6">
                     <ImageFlashcardPreview
                       file={pdfUrl(card.storagePath)}
                       pageNumber={card.pageNumber}
                       width={pageWidth}
+                      pageWidth={card.pageWidth}
+                      pageHeight={card.pageHeight}
+                      crop={card.crop}
                     />
                   </div>
-                  <div className="border-t border-ivory-dark px-4 py-3 text-xs text-warm-gray">
-                    Tap to flip. Front shows the source page image for this figure reference.
+                  <div className="border-t border-ivory-dark px-4 py-3 text-center text-xs text-warm-gray">
+                    Tap to flip. Front shows only the figure image crop.
                   </div>
                 </div>
               ) : (
@@ -282,8 +282,16 @@ export default function ImageFlashcardsPage() {
                 <p className="text-sm font-semibold">Image Deck</p>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-warm-gray">
-                This deck is organized by figure references extracted from the PDFs. The front shows the source page image. The back shows the figure caption plus same-document lines that reference that figure.
+                This deck is organized by figure references extracted from the PDFs. The front shows a cropped figure-only view. The back shows the figure caption plus same-document lines that reference that figure.
               </p>
+
+              <div className="mt-4 rounded-xl border border-ivory-dark bg-ivory/35 px-4 py-3 text-sm text-navy">
+                <p className="font-medium">{card.figureLabel}</p>
+                <p className="mt-1 text-warm-gray">{card.documentTitle}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.18em] text-warm-gray">
+                  Page {card.pageNumber}
+                </p>
+              </div>
 
               <div className="mt-5 space-y-3">
                 <button

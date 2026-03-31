@@ -26,6 +26,19 @@ type Line = {
   x: number;
 };
 
+type PageText = {
+  width: number;
+  height: number;
+  lines: Line[];
+};
+
+type Crop = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
 type Card = {
   id: string;
   documentTitle: string;
@@ -34,6 +47,9 @@ type Card = {
   storagePath: string;
   figureLabel: string;
   pageNumber: number;
+  pageWidth: number;
+  pageHeight: number;
+  crop: Crop;
   caption: string;
   references: string[];
 };
@@ -56,10 +72,7 @@ function shouldSkipLine(text: string) {
   return false;
 }
 
-async function extractLines(filePath: string, pageNumber: number): Promise<Line[]> {
-  const data = new Uint8Array(fs.readFileSync(filePath));
-  const doc = await getDocument({ data, disableWorker: true }).promise;
-  const page = await doc.getPage(pageNumber);
+async function extractLinesFromPage(page: any): Promise<Line[]> {
   const text = await page.getTextContent();
 
   const positioned = text.items
@@ -93,6 +106,73 @@ async function extractLines(filePath: string, pageNumber: number): Promise<Line[
   return lines.filter((line) => !shouldSkipLine(line.text));
 }
 
+async function extractPageText(filePath: string, pageNumber: number): Promise<PageText> {
+  const data = new Uint8Array(fs.readFileSync(filePath));
+  const doc = await getDocument({ data, disableWorker: true }).promise;
+  const page = await doc.getPage(pageNumber);
+  const viewport = page.getViewport({ scale: 1 });
+  const lines = await extractLinesFromPage(page);
+
+  return {
+    width: viewport.width,
+    height: viewport.height,
+    lines,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function toTopRatio(y: number, pageHeight: number) {
+  return clamp(1 - y / pageHeight, 0, 1);
+}
+
+function buildCrop(input: {
+  pageWidth: number;
+  pageHeight: number;
+  lines: Line[];
+  caption: string;
+  captionY: number;
+}): Crop {
+  const nonCaptionLines = input.lines.filter((line) => line.text !== input.caption);
+  const aboveLines = nonCaptionLines
+    .filter((line) => line.y > input.captionY + 4)
+    .sort((a, b) => a.y - b.y);
+  const belowLines = nonCaptionLines
+    .filter((line) => line.y < input.captionY - 4)
+    .sort((a, b) => b.y - a.y);
+
+  const nearestAbove = aboveLines[0];
+  const nearestBelow = belowLines[0];
+  const gapAbove = nearestAbove ? nearestAbove.y - input.captionY : input.pageHeight * 0.42;
+  const topY = nearestAbove
+    ? nearestAbove.y - Math.min(14, Math.max(8, gapAbove * 0.12))
+    : input.pageHeight - 24;
+  const bottomY = nearestBelow
+    ? Math.max(
+        input.captionY + 8,
+        nearestBelow.y + Math.min(18, Math.max(8, (input.captionY - nearestBelow.y) * 0.35))
+      )
+    : input.captionY + 10;
+
+  let top = toTopRatio(topY, input.pageHeight);
+  let bottom = toTopRatio(bottomY, input.pageHeight);
+
+  if (bottom - top < 0.18) {
+    const pad = (0.18 - (bottom - top)) / 2;
+    top = clamp(top - pad, 0.02, 0.88);
+    bottom = clamp(bottom + pad, 0.12, 0.98);
+  }
+
+  return {
+    left: 0.06,
+    top,
+    right: 0.94,
+    bottom,
+  };
+}
+
 async function buildCardsForPdf(input: {
   filePath: string;
   category: string;
@@ -104,13 +184,18 @@ async function buildCardsForPdf(input: {
     string,
     {
       pageNumber: number;
+      pageWidth: number;
+      pageHeight: number;
+      crop: Crop;
       caption: string;
+      captionY: number;
       references: Set<string>;
     }
   >();
 
   for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
-    const lines = await extractLines(input.filePath, pageNumber);
+    const pageText = await extractPageText(input.filePath, pageNumber);
+    const { lines, width, height } = pageText;
 
     for (const line of lines) {
       const matches = Array.from(line.text.matchAll(/Figure\s+(\d+[A-Z]?)/gi));
@@ -121,7 +206,16 @@ async function buildCardsForPdf(input: {
         const label = `Figure ${suffix}`;
         const existing = figures.get(label) || {
           pageNumber,
+          pageWidth: width,
+          pageHeight: height,
+          crop: {
+            left: 0.06,
+            top: 0.08,
+            right: 0.94,
+            bottom: 0.72,
+          },
           caption: "",
+          captionY: 0,
           references: new Set<string>(),
         };
 
@@ -129,6 +223,16 @@ async function buildCardsForPdf(input: {
         if (isCaption && !existing.caption) {
           existing.caption = line.text;
           existing.pageNumber = pageNumber;
+          existing.pageWidth = width;
+          existing.pageHeight = height;
+          existing.captionY = line.y;
+          existing.crop = buildCrop({
+            pageWidth: width,
+            pageHeight: height,
+            lines,
+            caption: line.text,
+            captionY: line.y,
+          });
         } else if (!isCaption) {
           existing.references.add(line.text);
         }
@@ -152,6 +256,9 @@ async function buildCardsForPdf(input: {
         storagePath: `${input.category}/${input.title}.pdf`,
         figureLabel,
         pageNumber: figure.pageNumber,
+        pageWidth: figure.pageWidth,
+        pageHeight: figure.pageHeight,
+        crop: figure.crop,
         caption: figure.caption || figureLabel,
         references,
       };
