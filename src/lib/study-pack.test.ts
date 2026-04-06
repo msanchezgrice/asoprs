@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildStudyPackText } from "./study-pack";
+import { buildStudyPackInstructions, buildStudyPackText } from "./study-pack";
 
 describe("buildStudyPackText", () => {
   test("renders board-style MCQ output with answer keys by section", () => {
@@ -67,5 +67,19 @@ describe("buildStudyPackText", () => {
     expect(text).toContain(
       "A1. The lid margin is not truly inverted in epiblepharon."
     );
+  });
+
+  test("builds dynamic instructions from requested counts and mode", () => {
+    const instructions = buildStudyPackInstructions({
+      contentMode: "both",
+      mcqCount: 40,
+      flashcardCount: 22,
+    });
+
+    expect(instructions).toContain(
+      "exactly 40 board-style multiple-choice questions"
+    );
+    expect(instructions).toContain("exactly 22 high-yield flashcards");
+    expect(instructions).toContain("exactly 3 answer choices");
   });
 });

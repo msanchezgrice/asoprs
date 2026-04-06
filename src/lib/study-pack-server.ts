@@ -8,8 +8,12 @@ import {
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getGemini } from "@/lib/gemini";
 import {
+  buildStudyPackInstructions,
   buildStudyPackText,
   buildStudyPackTitle,
+  DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
+  DEFAULT_STUDY_PACK_MCQ_COUNT,
+  sanitizeStudyPackCount,
   type StudyPack,
   type StudyPackContentMode,
   type StudyPackFlashcard,
@@ -17,8 +21,6 @@ import {
   type StudyPackSection,
 } from "@/lib/study-pack";
 
-const MCQ_COUNT = 50;
-const FLASHCARD_COUNT = 30;
 const MAX_SOURCE_CHARS = 18000;
 
 interface SourceDocument {
@@ -92,15 +94,17 @@ function parseGeneratedStudyPack(raw: string) {
 async function generateSectionContent(
   doc: SourceDocument,
   contentMode: StudyPackContentMode,
-  instructions: string
+  instructions: string,
+  mcqCount: number,
+  flashcardCount: number
 ) {
   const model = getGemini();
   const modeInstructions =
     contentMode === "mcq"
-      ? `Write exactly ${MCQ_COUNT} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation.`
+      ? `Write exactly ${mcqCount} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation.`
       : contentMode === "flashcards"
-        ? `Write exactly ${FLASHCARD_COUNT} high-yield flashcards with concise but information-dense answers.`
-        : `Write exactly ${MCQ_COUNT} board-style MCQs and exactly ${FLASHCARD_COUNT} high-yield flashcards.`;
+        ? `Write exactly ${flashcardCount} high-yield flashcards with concise but information-dense answers.`
+        : `Write exactly ${mcqCount} board-style MCQs and exactly ${flashcardCount} high-yield flashcards.`;
 
   const prompt = `
 Create ASOPRS board-review study material for the section "${doc.title}".
@@ -151,15 +155,16 @@ ${doc.content.slice(0, MAX_SOURCE_CHARS)}
       });
 
       const parsed = parseGeneratedStudyPack(response.text ?? "");
-      const mcqs =
-        contentMode === "flashcards" ? [] : parsed.mcqs.slice(0, MCQ_COUNT);
+      const mcqs = contentMode === "flashcards" ? [] : parsed.mcqs.slice(0, mcqCount);
       const flashcards =
-        contentMode === "mcq" ? [] : parsed.flashcards.slice(0, FLASHCARD_COUNT);
+        contentMode === "mcq"
+          ? []
+          : parsed.flashcards.slice(0, flashcardCount);
 
       if (
         (contentMode === "mcq" && mcqs.length === 0) ||
         (contentMode === "flashcards" && flashcards.length === 0) ||
-        (contentMode === "both" && mcqs.length === 0 && flashcards.length === 0)
+        (contentMode === "both" && (mcqs.length === 0 || flashcards.length === 0))
       ) {
         throw new Error(`Empty generator response for ${doc.title}.`);
       }
@@ -186,18 +191,45 @@ export async function generateStudyPack(params: {
   documents: SourceDocument[];
   contentMode: StudyPackContentMode;
   instructions: string;
+  mcqCount?: number;
+  flashcardCount?: number;
 }) {
+  const mcqCount = sanitizeStudyPackCount(
+    params.mcqCount,
+    DEFAULT_STUDY_PACK_MCQ_COUNT
+  );
+  const flashcardCount = sanitizeStudyPackCount(
+    params.flashcardCount,
+    DEFAULT_STUDY_PACK_FLASHCARD_COUNT
+  );
+  const instructions =
+    params.instructions.trim() ||
+    buildStudyPackInstructions({
+      contentMode: params.contentMode,
+      mcqCount,
+      flashcardCount,
+    });
   const sections: StudyPackSection[] = [];
 
   for (const doc of params.documents) {
     sections.push(
-      await generateSectionContent(doc, params.contentMode, params.instructions)
+      await generateSectionContent(
+        doc,
+        params.contentMode,
+        instructions,
+        mcqCount,
+        flashcardCount
+      )
     );
   }
 
   return {
     title: buildStudyPackTitle(params.documents.map((doc) => doc.title)),
     contentMode: params.contentMode,
+    requestedCounts: {
+      mcqCount,
+      flashcardCount,
+    },
     sections,
   } satisfies StudyPack;
 }

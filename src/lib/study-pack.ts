@@ -3,10 +3,17 @@ import type { Category, Document } from "@/data/sample-documents";
 export type StudyPackContentMode = "mcq" | "flashcards" | "both";
 export type StudyPackOutputFormat = "docx" | "pdf" | "in-app";
 
+export const DEFAULT_STUDY_PACK_MCQ_COUNT = 50;
+export const DEFAULT_STUDY_PACK_FLASHCARD_COUNT = 30;
+export const MIN_STUDY_PACK_ITEM_COUNT = 1;
+export const MAX_STUDY_PACK_ITEM_COUNT = 100;
+
 export interface StudyPackRequest {
   selectedDocumentIds: string[];
   contentMode: StudyPackContentMode;
   outputFormat: StudyPackOutputFormat;
+  mcqCount: number;
+  flashcardCount: number;
   instructions: string;
 }
 
@@ -33,6 +40,10 @@ export interface StudyPackSection {
 export interface StudyPack {
   title: string;
   contentMode: StudyPackContentMode;
+  requestedCounts?: {
+    mcqCount: number;
+    flashcardCount: number;
+  };
   sections: StudyPackSection[];
 }
 
@@ -45,8 +56,76 @@ export interface SavedStudyPackSummary {
   outputFormat: StudyPackOutputFormat;
 }
 
-export const DEFAULT_STUDY_PACK_INSTRUCTIONS =
-  "Create high-yield ASOPRS board-review content. MCQs should use exactly 3 answer choices and include an answer key. Flashcards should emphasize high-yield diagnosis, management, and surgical pearls.";
+export function sanitizeStudyPackCount(value: unknown, fallback: number) {
+  const parsed =
+    typeof value === "string"
+      ? Number.parseInt(value, 10)
+      : typeof value === "number"
+        ? value
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(
+    MAX_STUDY_PACK_ITEM_COUNT,
+    Math.max(MIN_STUDY_PACK_ITEM_COUNT, Math.trunc(parsed))
+  );
+}
+
+export function buildStudyPackInstructions(params: {
+  contentMode: StudyPackContentMode;
+  mcqCount?: number;
+  flashcardCount?: number;
+  additionalInstructions?: string;
+}) {
+  const mcqCount = sanitizeStudyPackCount(
+    params.mcqCount,
+    DEFAULT_STUDY_PACK_MCQ_COUNT
+  );
+  const flashcardCount = sanitizeStudyPackCount(
+    params.flashcardCount,
+    DEFAULT_STUDY_PACK_FLASHCARD_COUNT
+  );
+
+  const lines = ["Create high-yield ASOPRS board-review content."];
+
+  if (params.contentMode === "mcq") {
+    lines.push(
+      `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions.`,
+      "Use exactly 3 answer choices per question, include an answer key, and add concise explanations."
+    );
+  } else if (params.contentMode === "flashcards") {
+    lines.push(
+      `For each selected section, write exactly ${flashcardCount} high-yield flashcards.`,
+      "Keep prompts focused and make the answers concise but information-dense."
+    );
+  } else {
+    lines.push(
+      `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions with exactly 3 answer choices, an answer key, and concise explanations.`,
+      `Also write exactly ${flashcardCount} high-yield flashcards for the same section.`
+    );
+  }
+
+  lines.push(
+    "Prioritize diagnosis, anatomy, management, surgical decision-making, complications, and operative pearls most likely to matter for the ASOPRS boards.",
+    "Avoid filler, repetition, and low-yield trivia."
+  );
+
+  const additionalInstructions = params.additionalInstructions?.trim();
+  if (additionalInstructions) {
+    lines.push(`Additional instructions: ${additionalInstructions}`);
+  }
+
+  return lines.join(" ");
+}
+
+export const DEFAULT_STUDY_PACK_INSTRUCTIONS = buildStudyPackInstructions({
+  contentMode: "both",
+  mcqCount: DEFAULT_STUDY_PACK_MCQ_COUNT,
+  flashcardCount: DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
+});
 
 export function groupDocumentsByCategory(documents: Document[]) {
   return documents.reduce<Record<Category, Document[]>>((acc, doc) => {

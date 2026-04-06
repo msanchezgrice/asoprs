@@ -1,11 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare2, FileOutput, Sparkles, X } from "lucide-react";
+import {
+  CheckSquare2,
+  ChevronDown,
+  FileOutput,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import type { Document } from "@/data/sample-documents";
 import {
-  DEFAULT_STUDY_PACK_INSTRUCTIONS,
+  buildStudyPackInstructions,
+  DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
+  DEFAULT_STUDY_PACK_MCQ_COUNT,
   groupDocumentsByCategory,
+  MAX_STUDY_PACK_ITEM_COUNT,
+  MIN_STUDY_PACK_ITEM_COUNT,
+  sanitizeStudyPackCount,
   type StudyPack,
   type StudyPackRequest,
 } from "@/lib/study-pack";
@@ -36,12 +48,51 @@ export function StudyPackGeneratorModal({
     useState<StudyPackRequest["contentMode"]>("mcq");
   const [outputFormat, setOutputFormat] =
     useState<StudyPackRequest["outputFormat"]>("docx");
-  const [instructions, setInstructions] = useState(
-    DEFAULT_STUDY_PACK_INSTRUCTIONS
+  const [mcqCountInput, setMcqCountInput] = useState(
+    String(DEFAULT_STUDY_PACK_MCQ_COUNT)
   );
+  const [flashcardCountInput, setFlashcardCountInput] = useState(
+    String(DEFAULT_STUDY_PACK_FLASHCARD_COUNT)
+  );
+  const [instructionsMode, setInstructionsMode] = useState<"auto" | "custom">(
+    "auto"
+  );
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [instructionsExpanded, setInstructionsExpanded] = useState(false);
 
   const groupedDocs = useMemo(() => groupDocumentsByCategory(documents), [documents]);
   const totalSelected = selectedIds.length;
+  const mcqCount = useMemo(
+    () => sanitizeStudyPackCount(mcqCountInput, DEFAULT_STUDY_PACK_MCQ_COUNT),
+    [mcqCountInput]
+  );
+  const flashcardCount = useMemo(
+    () =>
+      sanitizeStudyPackCount(
+        flashcardCountInput,
+        DEFAULT_STUDY_PACK_FLASHCARD_COUNT
+      ),
+    [flashcardCountInput]
+  );
+  const autoInstructions = useMemo(
+    () =>
+      buildStudyPackInstructions({
+        contentMode,
+        mcqCount,
+        flashcardCount,
+      }),
+    [contentMode, flashcardCount, mcqCount]
+  );
+  const effectiveInstructions =
+    instructionsMode === "custom" && customInstructions.trim()
+      ? customInstructions.trim()
+      : autoInstructions;
+  const countSummary =
+    contentMode === "mcq"
+      ? `${mcqCount} MCQs per selected section`
+      : contentMode === "flashcards"
+        ? `${flashcardCount} flashcards per selected section`
+        : `${mcqCount} MCQs and ${flashcardCount} flashcards per selected section`;
 
   if (!open) {
     return null;
@@ -67,10 +118,36 @@ export function StudyPackGeneratorModal({
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
   }
 
+  function handleCountInputChange(
+    value: string,
+    setter: (nextValue: string) => void
+  ) {
+    setter(value.replace(/[^\d]/g, ""));
+  }
+
+  function handleCountBlur(
+    value: string,
+    fallback: number,
+    setter: (nextValue: string) => void
+  ) {
+    setter(String(sanitizeStudyPackCount(value, fallback)));
+  }
+
+  function handleInstructionsChange(value: string) {
+    setInstructionsMode("custom");
+    setCustomInstructions(value);
+  }
+
+  function resetInstructions() {
+    setInstructionsMode("auto");
+    setCustomInstructions("");
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 px-4 py-6 backdrop-blur-sm">
-      <div className="grid max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-white/50 bg-[linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.98))] shadow-[0_32px_80px_rgba(8,25,47,0.22)] md:grid-cols-[1.15fr_0.85fr]">
-        <section className="min-h-0 border-b border-ivory-dark/70 bg-white/55 md:border-b-0 md:border-r md:border-ivory-dark/70">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-navy/60 px-4 py-6 backdrop-blur-sm">
+      <div className="mx-auto w-full max-w-6xl rounded-[28px] border border-white/50 bg-[linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.98))] shadow-[0_32px_80px_rgba(8,25,47,0.22)] md:max-h-[92vh] md:overflow-hidden">
+        <div className="grid md:grid-cols-[1.15fr_0.85fr]">
+        <section className="border-b border-ivory-dark/70 bg-white/55 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r md:border-ivory-dark/70">
           <div className="flex items-start justify-between border-b border-ivory-dark/70 px-5 py-5 md:px-7">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-coral">
@@ -94,14 +171,14 @@ export function StudyPackGeneratorModal({
             </button>
           </div>
 
-          <div className="max-h-[62vh] overflow-y-auto px-5 py-5 md:px-7">
+          <div className="px-5 py-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
             <div className="mb-4 flex items-center justify-between rounded-2xl border border-ivory-dark bg-ivory/70 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-navy">
                   {totalSelected} section{totalSelected === 1 ? "" : "s"} selected
                 </p>
                 <p className="text-xs text-warm-gray">
-                  Default output: 50 MCQs or 30 flashcards per section.
+                  {countSummary}
                 </p>
               </div>
               <CheckSquare2 className="h-5 w-5 text-coral" />
@@ -178,8 +255,8 @@ export function StudyPackGeneratorModal({
           </div>
         </section>
 
-        <section className="min-h-0 bg-[radial-gradient(circle_at_top,rgba(255,123,87,0.16),transparent_40%),linear-gradient(180deg,#fffaf3_0%,#fff 100%)] px-5 py-5 md:px-7">
-          <div className="rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-[0_18px_40px_rgba(8,25,47,0.08)]">
+        <section className="bg-[radial-gradient(circle_at_top,rgba(255,123,87,0.16),transparent_40%),linear-gradient(180deg,#fffaf3_0%,#fff 100%)] px-5 py-5 md:flex md:min-h-0 md:flex-col md:px-7">
+          <div className="rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-[0_18px_40px_rgba(8,25,47,0.08)] md:flex md:min-h-0 md:flex-1 md:flex-col">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-coral/10 text-coral">
                 <Sparkles className="h-5 w-5" />
@@ -194,7 +271,7 @@ export function StudyPackGeneratorModal({
               </div>
             </div>
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
               <fieldset>
                 <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
                   Content
@@ -235,6 +312,75 @@ export function StudyPackGeneratorModal({
 
               <fieldset>
                 <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
+                  Counts
+                </legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {contentMode !== "flashcards" ? (
+                    <label className="block rounded-2xl border border-ivory-dark bg-white px-4 py-3">
+                      <span className="block text-sm font-semibold text-navy">
+                        MCQs per section
+                      </span>
+                      <input
+                        type="number"
+                        min={MIN_STUDY_PACK_ITEM_COUNT}
+                        max={MAX_STUDY_PACK_ITEM_COUNT}
+                        inputMode="numeric"
+                        value={mcqCountInput}
+                        onChange={(event) =>
+                          handleCountInputChange(
+                            event.target.value,
+                            setMcqCountInput
+                          )
+                        }
+                        onBlur={() =>
+                          handleCountBlur(
+                            mcqCountInput,
+                            DEFAULT_STUDY_PACK_MCQ_COUNT,
+                            setMcqCountInput
+                          )
+                        }
+                        className="mt-3 w-full rounded-2xl border border-ivory-dark bg-ivory px-3 py-2 text-sm font-semibold text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/15"
+                      />
+                    </label>
+                  ) : null}
+
+                  {contentMode !== "mcq" ? (
+                    <label className="block rounded-2xl border border-ivory-dark bg-white px-4 py-3">
+                      <span className="block text-sm font-semibold text-navy">
+                        Flashcards per section
+                      </span>
+                      <input
+                        type="number"
+                        min={MIN_STUDY_PACK_ITEM_COUNT}
+                        max={MAX_STUDY_PACK_ITEM_COUNT}
+                        inputMode="numeric"
+                        value={flashcardCountInput}
+                        onChange={(event) =>
+                          handleCountInputChange(
+                            event.target.value,
+                            setFlashcardCountInput
+                          )
+                        }
+                        onBlur={() =>
+                          handleCountBlur(
+                            flashcardCountInput,
+                            DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
+                            setFlashcardCountInput
+                          )
+                        }
+                        className="mt-3 w-full rounded-2xl border border-ivory-dark bg-ivory px-3 py-2 text-sm font-semibold text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/15"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-warm-gray">
+                  Counts apply to each selected section. Supported range:{" "}
+                  {MIN_STUDY_PACK_ITEM_COUNT}-{MAX_STUDY_PACK_ITEM_COUNT}.
+                </p>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
                   Output format
                 </legend>
                 <div className="mt-3 space-y-2">
@@ -271,39 +417,75 @@ export function StudyPackGeneratorModal({
                 </div>
               </fieldset>
 
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
-                  Instructions
-                </span>
-                <textarea
-                  value={instructions}
-                  onChange={(event) => setInstructions(event.target.value)}
-                  className="mt-3 min-h-36 w-full rounded-3xl border border-ivory-dark bg-white px-4 py-3 text-sm leading-6 text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/15"
-                />
-              </label>
+              <div className="rounded-3xl border border-ivory-dark bg-white px-4 py-4">
+                <button
+                  type="button"
+                  onClick={() => setInstructionsExpanded((value) => !value)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                  aria-expanded={instructionsExpanded}
+                >
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
+                      Instructions
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-navy">
+                      {instructionsMode === "auto"
+                        ? "Prompt auto-generated from your content type and counts"
+                        : "Custom prompt override"}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-warm-gray transition ${
+                      instructionsExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
 
-              <button
-                type="button"
-                disabled={selectedIds.length === 0 || generating}
-                onClick={() =>
-                  onGenerate({
-                    selectedDocumentIds: [...selectedIds].sort(),
-                    contentMode,
-                    outputFormat,
-                    instructions: instructions.trim(),
-                  })
-                }
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-navy px-4 py-4 text-sm font-semibold text-white transition hover:bg-navy/92 disabled:cursor-not-allowed disabled:bg-navy/35"
-              >
-                <FileOutput className="h-4 w-4" />
-                {generating ? "Generating..." : "Generate Study Pack"}
-              </button>
+                <p className="mt-3 max-h-20 overflow-hidden text-sm leading-6 text-warm-gray">
+                  {effectiveInstructions}
+                </p>
 
-              {errorMessage ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {errorMessage}
-                </div>
-              ) : null}
+                {instructionsExpanded ? (
+                  <div className="mt-4 border-t border-ivory-dark/70 pt-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs leading-5 text-warm-gray">
+                        {instructionsMode === "auto"
+                          ? "This prompt updates automatically when you change the resource type or counts."
+                          : "Custom edits are active. Reset to restore the auto-generated prompt."}
+                      </p>
+                      {instructionsMode === "custom" ? (
+                        <button
+                          type="button"
+                          onClick={resetInstructions}
+                          className="inline-flex items-center gap-2 rounded-full border border-coral/20 bg-coral/8 px-3 py-1.5 text-xs font-semibold text-coral transition hover:bg-coral/14"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Use auto prompt
+                        </button>
+                      ) : null}
+                    </div>
+                    <textarea
+                      value={
+                        instructionsMode === "auto"
+                          ? autoInstructions
+                          : customInstructions
+                      }
+                      onChange={(event) =>
+                        handleInstructionsChange(event.target.value)
+                      }
+                      onBlur={() => {
+                        if (
+                          instructionsMode === "custom" &&
+                          !customInstructions.trim()
+                        ) {
+                          resetInstructions();
+                        }
+                      }}
+                      className="min-h-36 w-full rounded-3xl border border-ivory-dark bg-white px-4 py-3 text-sm leading-6 text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/15"
+                    />
+                  </div>
+                ) : null}
+              </div>
 
               {preview ? (
                 <div className="rounded-[28px] border border-ivory-dark bg-white/95 p-4 shadow-sm">
@@ -337,8 +519,36 @@ export function StudyPackGeneratorModal({
                 </div>
               ) : null}
             </div>
+
+            <div className="mt-4 border-t border-ivory-dark/70 pt-4">
+              {errorMessage ? (
+                <div className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                disabled={selectedIds.length === 0 || generating}
+                onClick={() =>
+                  onGenerate({
+                    selectedDocumentIds: [...selectedIds].sort(),
+                    contentMode,
+                    outputFormat,
+                    mcqCount,
+                    flashcardCount,
+                    instructions: effectiveInstructions,
+                  })
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-navy px-4 py-4 text-sm font-semibold text-white transition hover:bg-navy/92 disabled:cursor-not-allowed disabled:bg-navy/35"
+              >
+                <FileOutput className="h-4 w-4" />
+                {generating ? "Generating..." : "Generate Study Pack"}
+              </button>
+            </div>
           </div>
         </section>
+        </div>
       </div>
     </div>
   );

@@ -7,8 +7,12 @@ import {
   generateStudyPack,
 } from "@/lib/study-pack-server";
 import {
+  buildStudyPackInstructions,
   buildStudyPackFilename,
   buildStudyPackText,
+  DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
+  DEFAULT_STUDY_PACK_MCQ_COUNT,
+  sanitizeStudyPackCount,
   type StudyPackContentMode,
   type StudyPackOutputFormat,
 } from "@/lib/study-pack";
@@ -108,6 +112,8 @@ export async function POST(request: NextRequest) {
       contentMode?: StudyPackContentMode;
       outputFormat?: StudyPackOutputFormat;
       instructions?: string;
+      mcqCount?: number;
+      flashcardCount?: number;
     };
 
     if (
@@ -121,6 +127,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const mcqCount = sanitizeStudyPackCount(
+      body.mcqCount,
+      DEFAULT_STUDY_PACK_MCQ_COUNT
+    );
+    const flashcardCount = sanitizeStudyPackCount(
+      body.flashcardCount,
+      DEFAULT_STUDY_PACK_FLASHCARD_COUNT
+    );
+    const instructions =
+      body.instructions?.trim() ||
+      buildStudyPackInstructions({
+        contentMode: body.contentMode,
+        mcqCount,
+        flashcardCount,
+      });
 
     const supabase = getServiceClient();
     const { data: docs, error: docsError } = await supabase
@@ -179,13 +201,15 @@ export async function POST(request: NextRequest) {
     const pack = await generateStudyPack({
       documents: orderedDocs,
       contentMode: body.contentMode,
-      instructions: body.instructions?.trim() || "",
+      instructions,
+      mcqCount,
+      flashcardCount,
     });
     const packText = buildStudyPackText(pack);
     const savedPackId = await persistStudyPack({
       outputFormat: body.outputFormat,
       selectedDocumentIds: body.selectedDocumentIds,
-      instructions: body.instructions?.trim() || "",
+      instructions,
       pack,
       packText,
     });
