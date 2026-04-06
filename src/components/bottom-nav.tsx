@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import NextImage from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -115,9 +116,21 @@ export function BottomNav() {
         style={{ width: sidebarWidth }}
       >
         <div className="px-6 py-6">
-          <h1 className="text-2xl font-bold tracking-wide text-navy">
-            ASOPRS
-          </h1>
+          <Link
+            href="/"
+            aria-label="Go to the ASOPRS Study Portal home page"
+            className="block"
+          >
+            <NextImage
+              src="/asoprs-logo.jpg"
+              alt="American Society of Ophthalmic Plastic and Reconstructive Surgery"
+              width={1400}
+              height={155}
+              priority
+              className="h-auto w-full"
+              sizes="(min-width: 768px) 240px, 200px"
+            />
+          </Link>
           <p className="mt-1 text-xs font-medium tracking-wide text-warm-gray uppercase">
             Board Review Portal
           </p>
