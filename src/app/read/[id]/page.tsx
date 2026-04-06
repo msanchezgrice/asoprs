@@ -20,7 +20,6 @@ import {
 import { CATEGORY_META, type Category } from "@/data/sample-documents";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
-import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 import {
   type PdfHighlightRect,
   isPdfHighlightRectArray,
@@ -850,7 +849,6 @@ export default function ReaderPage({
           Chat
         </button>
       </div>
-      <AnnoyanceInbox screen="read" context={{ documentId: id }} />
     </div>
   );
 }

@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
-import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 
 type ExamMode = "practice" | "timed";
 type QuizState = "setup" | "active" | "review";
@@ -534,10 +533,6 @@ export default function QuizPage({
           </button>
         </div>
       </div>
-      <AnnoyanceInbox
-        screen="quiz"
-        context={{ docId, questionIndex: currentIndex, questionId: questions[currentIndex]?.id }}
-      />
     </div>
   );
 }

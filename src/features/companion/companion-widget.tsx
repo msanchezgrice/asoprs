@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, MicOff, Square, Monitor, Clock } from "lucide-react";
+import { Mic, MicOff, Square, Monitor, Clock, Key } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   createGeminiLiveSession,
@@ -18,16 +18,24 @@ import {
 } from "./session-store";
 import type { CompanionTurn, CompanionEvent, CaptureMode } from "./types";
 
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
+const ENV_GEMINI_KEY = process.env.NEXT_PUBLIC_currentKey ?? "";
 const GEMINI_MODEL = "gemini-3.1-flash-live-preview";
 const CAPTURE_INTERVAL_MS = 5000;
+const STORAGE_KEY = "oculoprep_gemini_api_key";
 
-type CompanionState = "idle" | "connecting" | "listening" | "error";
+function getStoredApiKey(): string {
+  if (typeof window === "undefined") return ENV_GEMINI_KEY;
+  return localStorage.getItem(STORAGE_KEY) ?? ENV_GEMINI_KEY;
+}
+
+type CompanionState = "idle" | "connecting" | "listening" | "error" | "needs_key";
 
 export function CompanionWidget() {
   const { user } = useAuthSession();
   const [state, setState] = useState<CompanionState>("idle");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("html2canvas");
+  const [apiKey, setApiKey] = useState("");
+  const [showKeyInput, setShowKeyInput] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [frustrationCount, setFrustrationCount] = useState(0);
   const [featureRequestCount, setFeatureRequestCount] = useState(0);
@@ -44,7 +52,11 @@ export function CompanionWidget() {
   const playCtxRef = useRef<AudioContext | null>(null);
 
   const startCompanion = useCallback(async () => {
-    if (!user || !GEMINI_API_KEY) return;
+    const currentKey = getStoredApiKey();
+    if (!user || !currentKey) {
+      if (user) setState("needs_key");
+      return;
+    }
 
     setState("connecting");
 
@@ -66,7 +78,7 @@ export function CompanionWidget() {
           captureIntervalMs: CAPTURE_INTERVAL_MS,
           systemPrompt: "",
           geminiModel: GEMINI_MODEL,
-          geminiApiKey: GEMINI_API_KEY,
+          geminiApiKey: currentKey,
         },
         {
           onAudioChunk(base64Audio) {
@@ -231,7 +243,9 @@ export function CompanionWidget() {
     };
   }, []);
 
-  if (!user || !GEMINI_API_KEY) return null;
+  const resolvedKey = getStoredApiKey();
+
+  if (!user) return null;
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);
@@ -243,14 +257,65 @@ export function CompanionWidget() {
     <>
       <video ref={videoRef} className="hidden" autoPlay muted playsInline />
       <div className="fixed bottom-20 md:bottom-4 left-4 z-50">
-        {state === "idle" ? (
-          <button
-            onClick={startCompanion}
-            className="flex items-center gap-2 bg-cyan-900/80 hover:bg-cyan-800/80 text-cyan-300 px-4 py-2.5 rounded-full text-sm font-medium backdrop-blur-sm border border-cyan-700/50 transition-colors"
-          >
-            <Mic size={16} />
-            Start companion
-          </button>
+        {/* BYO Key input */}
+        {(state === "needs_key" || showKeyInput) && (
+          <div className="bg-slate-900/95 border border-cyan-700/30 rounded-xl backdrop-blur-sm shadow-2xl p-4 mb-2 w-72">
+            <div className="flex items-center gap-2 mb-2">
+              <Key size={14} className="text-cyan-400" />
+              <span className="text-xs text-cyan-400 font-medium">Gemini API Key</span>
+            </div>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="AIzaSy..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-cyan-500 mb-2"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (apiKey.trim()) {
+                    localStorage.setItem(STORAGE_KEY, apiKey.trim());
+                    setShowKeyInput(false);
+                    setState("idle");
+                  }
+                }}
+                disabled={!apiKey.trim()}
+                className="flex-1 bg-cyan-700 hover:bg-cyan-600 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-xs font-medium"
+              >
+                Save
+              </button>
+              {state !== "needs_key" && (
+                <button
+                  onClick={() => setShowKeyInput(false)}
+                  className="px-3 py-1.5 text-slate-500 text-xs"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {state === "idle" || state === "needs_key" ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resolvedKey ? startCompanion : () => setShowKeyInput(true)}
+              className="flex items-center gap-2 bg-cyan-900/80 hover:bg-cyan-800/80 text-cyan-300 px-4 py-2.5 rounded-full text-sm font-medium backdrop-blur-sm border border-cyan-700/50 transition-colors"
+            >
+              <Mic size={16} />
+              {resolvedKey ? "Start companion" : "Set up companion"}
+            </button>
+            {resolvedKey && (
+              <button
+                onClick={() => setShowKeyInput(!showKeyInput)}
+                className="text-slate-500 hover:text-cyan-400 p-1"
+                title="Change API key"
+              >
+                <Key size={14} />
+              </button>
+            )}
+          </div>
         ) : state === "connecting" ? (
           <div className="flex items-center gap-2 bg-slate-800/90 text-slate-400 px-4 py-2.5 rounded-full text-sm backdrop-blur-sm border border-slate-700/50">
             <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />

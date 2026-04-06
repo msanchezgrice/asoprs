@@ -5,6 +5,7 @@ import { AuthSessionBootstrap } from "@/components/auth/auth-session-bootstrap";
 import { PostHogProvider } from "@/providers/posthog-provider";
 import { CompanionWidget } from "@/features/companion/companion-widget";
 import { ChangeTour } from "@/features/change-tour/change-tour";
+import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 
 const SITE_NAME = "ASOPRS Study Portal";
 const SITE_DESCRIPTION =
@@ -89,6 +90,7 @@ export default function RootLayout({
           </div>
           <CompanionWidget />
           <ChangeTour />
+          <AnnoyanceInbox screen="global" />
           <BottomNav />
         </PostHogProvider>
       </body>
