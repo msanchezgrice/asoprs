@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckSquare2,
   ChevronDown,
@@ -94,6 +94,23 @@ export function StudyPackGeneratorModal({
         ? `${flashcardCount} flashcards per selected section`
         : `${mcqCount} MCQs and ${flashcardCount} flashcards per selected section`;
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalBodyOverflow = document.body.style.overflow;
+
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.overflow = originalBodyOverflow;
+    };
+  }, [open]);
+
   if (!open) {
     return null;
   }
@@ -144,9 +161,9 @@ export function StudyPackGeneratorModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-navy/60 px-4 py-6 backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-6xl rounded-[28px] border border-white/50 bg-[linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.98))] shadow-[0_32px_80px_rgba(8,25,47,0.22)] md:max-h-[92vh] md:overflow-hidden">
-        <div className="grid md:grid-cols-[1.15fr_0.85fr]">
+    <div className="fixed inset-0 z-50 overflow-hidden overscroll-contain bg-navy/60 px-4 py-4 backdrop-blur-sm md:py-6">
+      <div className="mx-auto flex h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/50 bg-[linear-gradient(180deg,rgba(255,251,245,0.98),rgba(255,255,255,0.98))] shadow-[0_32px_80px_rgba(8,25,47,0.22)] md:h-[92vh] md:max-h-[92vh]">
+        <div className="grid min-h-0 flex-1 md:grid-cols-[1.15fr_0.85fr]">
         <section className="border-b border-ivory-dark/70 bg-white/55 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r md:border-ivory-dark/70">
           <div className="flex items-start justify-between border-b border-ivory-dark/70 px-5 py-5 md:px-7">
             <div>
@@ -171,7 +188,7 @@ export function StudyPackGeneratorModal({
             </button>
           </div>
 
-          <div className="px-5 py-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-7">
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 md:flex-1 md:px-7">
             <div className="mb-4 flex items-center justify-between rounded-2xl border border-ivory-dark bg-ivory/70 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-navy">
@@ -255,7 +272,7 @@ export function StudyPackGeneratorModal({
           </div>
         </section>
 
-        <section className="bg-[radial-gradient(circle_at_top,rgba(255,123,87,0.16),transparent_40%),linear-gradient(180deg,#fffaf3_0%,#fff 100%)] px-5 py-5 md:flex md:min-h-0 md:flex-col md:px-7">
+        <section className="min-h-0 bg-[radial-gradient(circle_at_top,rgba(255,123,87,0.16),transparent_40%),linear-gradient(180deg,#fffaf3_0%,#fff 100%)] px-5 py-5 md:flex md:flex-col md:px-7">
           <div className="rounded-[28px] border border-white/60 bg-white/85 p-5 shadow-[0_18px_40px_rgba(8,25,47,0.08)] md:flex md:min-h-0 md:flex-1 md:flex-col">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-coral/10 text-coral">
@@ -271,7 +288,7 @@ export function StudyPackGeneratorModal({
               </div>
             </div>
 
-            <div className="mt-6 space-y-6 md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
+            <div className="mt-6 space-y-6 overflow-y-auto overscroll-contain md:min-h-0 md:flex-1 md:pr-1">
               <fieldset>
                 <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
                   Content
@@ -520,7 +537,7 @@ export function StudyPackGeneratorModal({
               ) : null}
             </div>
 
-            <div className="mt-4 border-t border-ivory-dark/70 pt-4">
+            <div className="mt-4 border-t border-ivory-dark/70 bg-white/90 pt-4 backdrop-blur-sm">
               {errorMessage ? (
                 <div className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                   {errorMessage}
