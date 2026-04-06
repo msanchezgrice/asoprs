@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { AuthSessionBootstrap } from "@/components/auth/auth-session-bootstrap";
+import { PostHogProvider } from "@/providers/posthog-provider";
+import { CompanionWidget } from "@/features/companion/companion-widget";
 
 const SITE_NAME = "ASOPRS Study Portal";
 const SITE_DESCRIPTION =
@@ -79,11 +81,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-[Instrument_Sans] antialiased paper-grain">
-        <AuthSessionBootstrap />
-        <div className="min-h-dvh pb-20 md:pb-0 md:pl-(--sidebar-width,256px)">
-          {children}
-        </div>
-        <BottomNav />
+        <PostHogProvider>
+          <AuthSessionBootstrap />
+          <div className="min-h-dvh pb-20 md:pb-0 md:pl-(--sidebar-width,256px)">
+            {children}
+          </div>
+          <CompanionWidget />
+          <BottomNav />
+        </PostHogProvider>
       </body>
     </html>
   );

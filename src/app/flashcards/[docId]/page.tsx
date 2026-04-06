@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 
 type StudyResult = "got_it" | "missed" | null;
 
@@ -460,6 +461,10 @@ export default function FlashcardPage({
           </>
         )}
       </div>
+      <AnnoyanceInbox
+        screen="flashcards"
+        context={{ docId, cardIndex: currentIndex, cardId: filteredCards[currentIndex]?.id }}
+      />
     </div>
   );
 }

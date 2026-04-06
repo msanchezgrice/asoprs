@@ -5,7 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Loader2 } from "lucide-react";
-import { isPdfHighlightRectArray, type PdfHighlightRect } from "./highlight-types";
+import { type PdfHighlightRect } from "./highlight-types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -43,21 +43,28 @@ function normalizeRect(
   };
 }
 
+function isSuspiciousPageSelection(rects: PdfHighlightRect[]) {
+  return rects.some((rect) => rect.width >= 0.95 && rect.height >= 0.85);
+}
+
 export function PdfReader({
   url,
   highlights,
   highlightMode,
   onSaveHighlight,
+  onDeleteHighlight,
 }: {
   url: string;
   highlights: PdfHighlight[];
   highlightMode: boolean;
   onSaveHighlight: (pageNumber: number, text: string, rects: PdfHighlightRect[]) => Promise<void>;
+  onDeleteHighlight?: (highlightId: string) => Promise<void> | void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [numPages, setNumPages] = useState(0);
   const [pageWidth, setPageWidth] = useState(900);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -116,12 +123,19 @@ export function PdfReader({
       .map((rect) => normalizeRect(rect, pageRect))
       .filter((rect): rect is PdfHighlightRect => rect !== null);
 
+    if (isSuspiciousPageSelection(rects)) {
+      setSelectionWarning("That selection covered almost the whole page, so it was not saved. Try a smaller passage.");
+      selection.removeAllRanges();
+      return;
+    }
+
     if (!pageNumber || rects.length === 0) {
       selection.removeAllRanges();
       return;
     }
 
     const text = selection.toString().trim();
+    setSelectionWarning(null);
     selection.removeAllRanges();
     await onSaveHighlight(pageNumber, text, rects);
   }, [highlightMode, onSaveHighlight]);
@@ -156,6 +170,11 @@ export function PdfReader({
         <div className="rounded-xl border border-ivory-dark bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 shadow-sm">
           PDF highlights now save directly on the document. Turn on <span className="font-semibold">Highlight</span>, then drag over text on any page.
         </div>
+        {selectionWarning && (
+          <div className="rounded-xl border border-amber-200 bg-white px-4 py-3 text-xs font-medium text-amber-800 shadow-sm">
+            {selectionWarning}
+          </div>
+        )}
 
         <Document
           file={url}
@@ -194,9 +213,10 @@ export function PdfReader({
                 <div className="pointer-events-none absolute inset-0">
                   {pageHighlights.map((highlight) =>
                     highlight.rects.map((rect, rectIndex) => (
-                      <div
+                      <button
                         key={`${highlight.id}-${rectIndex}`}
-                        className="absolute rounded-[2px]"
+                        type="button"
+                        className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? "pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50" : ""}`}
                         style={{
                           left: `${rect.x * 100}%`,
                           top: `${rect.y * 100}%`,
@@ -204,7 +224,19 @@ export function PdfReader({
                           height: `${rect.height * 100}%`,
                           backgroundColor: `${highlight.color}66`,
                         }}
-                        title={highlight.text_content || "Saved highlight"}
+                        title={
+                          onDeleteHighlight && !highlightMode
+                            ? `Remove highlight: ${highlight.text_content || "Saved highlight"}`
+                            : highlight.text_content || "Saved highlight"
+                        }
+                        aria-label={`Remove highlight: ${highlight.text_content || "Saved highlight"}`}
+                        onClick={() => {
+                          if (!onDeleteHighlight || highlightMode) {
+                            return;
+                          }
+
+                          void onDeleteHighlight(highlight.id);
+                        }}
                       />
                     ))
                   )}

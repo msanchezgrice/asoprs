@@ -7,6 +7,7 @@ import {
   Sparkles,
   FileText,
 } from "lucide-react";
+import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 
 interface Message {
   id: string;
@@ -289,6 +290,7 @@ export default function ChatPage() {
           </p>
         </div>
       </div>
+      <AnnoyanceInbox screen="chat" />
     </div>
   );
 }
