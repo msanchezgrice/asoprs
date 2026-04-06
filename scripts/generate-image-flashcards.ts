@@ -72,12 +72,34 @@ function shouldSkipLine(text: string) {
   return false;
 }
 
-async function extractLinesFromPage(page: any): Promise<Line[]> {
+type TextContentLike = {
+  items: unknown[];
+};
+
+type TextItemLike = {
+  str: string;
+  transform: number[];
+};
+
+function isTextItemLike(value: unknown): value is TextItemLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "str" in value &&
+    typeof value.str === "string" &&
+    "transform" in value &&
+    Array.isArray(value.transform)
+  );
+}
+
+async function extractLinesFromPage(page: {
+  getTextContent: () => Promise<TextContentLike>;
+}): Promise<Line[]> {
   const text = await page.getTextContent();
 
   const positioned = text.items
     .map((item) => {
-      if (!("str" in item)) return null;
+      if (!isTextItemLike(item)) return null;
       const line = cleanLine(item.str);
       if (!line) return null;
       return {

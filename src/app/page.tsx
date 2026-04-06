@@ -12,12 +12,14 @@ import {
   ExternalLink,
   ArrowRight,
   Sparkles,
+  FileOutput,
 } from "lucide-react";
 import {
   CATEGORY_META,
   type Category,
   type Document,
 } from "@/data/sample-documents";
+import { StudyPackGeneratorModal } from "@/components/study-pack/study-pack-generator-modal";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   getAsoprsSortIndex,
@@ -25,6 +27,7 @@ import {
   type LayoutMode,
   type SortMode,
 } from "@/lib/library-order";
+import type { StudyPack, StudyPackRequest } from "@/lib/study-pack";
 
 const ALL_CATEGORIES: (Category | "All")[] = [
   "All",
@@ -39,6 +42,15 @@ const ALL_CATEGORIES: (Category | "All")[] = [
 function getPdfUrl(storagePath: string | null | undefined): string | null {
   if (!storagePath) return null;
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pdfs/${encodeURIComponent(storagePath).replace(/%2F/g, "/")}`;
+}
+
+function getFilenameFromDisposition(
+  disposition: string | null,
+  fallback: string
+) {
+  if (!disposition) return fallback;
+  const match = disposition.match(/filename="([^"]+)"/i);
+  return match?.[1] || fallback;
 }
 
 function DocumentCard({
@@ -159,6 +171,14 @@ export default function LibraryPage() {
       return "title";
     }
   });
+  const [studyPackOpen, setStudyPackOpen] = useState(false);
+  const [studyPackSession, setStudyPackSession] = useState(0);
+  const [studyPackGenerating, setStudyPackGenerating] = useState(false);
+  const [studyPackError, setStudyPackError] = useState<string | null>(null);
+  const [studyPackPreview, setStudyPackPreview] = useState<{
+    pack: StudyPack;
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -205,6 +225,64 @@ export default function LibraryPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  async function handleStudyPackGenerate(request: StudyPackRequest) {
+    setStudyPackGenerating(true);
+    setStudyPackError(null);
+
+    try {
+      const response = await fetch("/api/study-packs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ error: "Failed to generate study pack." }));
+        throw new Error(payload.error || "Failed to generate study pack.");
+      }
+
+      if (request.outputFormat === "in-app") {
+        const payload = (await response.json()) as {
+          pack: StudyPack;
+          text: string;
+        };
+        setStudyPackPreview(payload);
+        return;
+      }
+
+      const blob = await response.blob();
+      const filename = getFilenameFromDisposition(
+        response.headers.get("content-disposition"),
+        request.outputFormat === "docx"
+          ? "asoprs-study-pack.docx"
+          : "asoprs-study-pack.pdf"
+      );
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+
+      setStudyPackPreview(null);
+      setStudyPackOpen(false);
+    } catch (error) {
+      setStudyPackError(
+        error instanceof Error ? error.message : "Failed to generate study pack."
+      );
+    } finally {
+      setStudyPackGenerating(false);
+    }
+  }
+
+  function handleCloseStudyPack() {
+    setStudyPackOpen(false);
+    setStudyPackError(null);
+    setStudyPackPreview(null);
+  }
 
   useEffect(() => {
     if (!search || search.length < 3) {
@@ -306,13 +384,31 @@ export default function LibraryPage() {
 
       {/* Header */}
       <header className="mb-8">
-        <h1 className="font-[DM_Serif_Display] text-3xl text-navy md:text-4xl">
-          Document Library
-        </h1>
-        <p className="mt-2 text-sm text-warm-gray md:text-base">
-          {allDocs.length} ASOPRS documents &middot; {totalCards} flashcards &middot;{" "}
-          {totalMcqs.toLocaleString()} board-style questions
-        </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="font-[DM_Serif_Display] text-3xl text-navy md:text-4xl">
+              Document Library
+            </h1>
+            <p className="mt-2 text-sm text-warm-gray md:text-base">
+              {allDocs.length} ASOPRS documents &middot; {totalCards} flashcards &middot;{" "}
+              {totalMcqs.toLocaleString()} board-style questions
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStudyPackError(null);
+              setStudyPackPreview(null);
+              setStudyPackSession((value) => value + 1);
+              setStudyPackOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral transition hover:bg-coral/15"
+          >
+            <FileOutput size={16} />
+            Generate Study Pack
+          </button>
+        </div>
       </header>
 
       {/* Stats strip */}
@@ -524,6 +620,18 @@ export default function LibraryPage() {
           </button>
         </div>
       )}
+
+      <StudyPackGeneratorModal
+        key={studyPackSession}
+        open={studyPackOpen}
+        documents={documents}
+        generating={studyPackGenerating}
+        errorMessage={studyPackError}
+        preview={studyPackPreview}
+        onClose={handleCloseStudyPack}
+        onGenerate={handleStudyPackGenerate}
+        onClearPreview={() => setStudyPackPreview(null)}
+      />
     </div>
   );
 }
