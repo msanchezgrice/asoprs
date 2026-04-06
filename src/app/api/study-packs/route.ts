@@ -44,7 +44,7 @@ async function persistStudyPack(params: {
   } = await userDb.auth.getUser();
 
   if (!user) {
-    return null;
+    return { id: null, error: null };
   }
 
   const { data: inserted, error } = await userDb
@@ -64,10 +64,11 @@ async function persistStudyPack(params: {
     .single();
 
   if (error) {
-    return null;
+    console.error("Failed to persist study pack", error);
+    return { id: null, error: error.message };
   }
 
-  return inserted?.id ?? null;
+  return { id: inserted?.id ?? null, error: null };
 }
 
 export async function GET() {
@@ -89,6 +90,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Failed to load saved study packs", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -206,13 +208,14 @@ export async function POST(request: NextRequest) {
       flashcardCount,
     });
     const packText = buildStudyPackText(pack);
-    const savedPackId = await persistStudyPack({
+    const persisted = await persistStudyPack({
       outputFormat: body.outputFormat,
       selectedDocumentIds: body.selectedDocumentIds,
       instructions,
       pack,
       packText,
     });
+    const savedPackId = persisted.id;
 
     if (body.outputFormat === "in-app") {
       return NextResponse.json({
@@ -221,6 +224,7 @@ export async function POST(request: NextRequest) {
         filename: buildStudyPackFilename(pack, "in-app"),
         savedPackId,
         saved: Boolean(savedPackId),
+        saveError: persisted.error,
       });
     }
 
@@ -244,11 +248,13 @@ export async function POST(request: NextRequest) {
         "Content-Type": contentType,
         "Content-Disposition": `attachment; filename="${filename}"`,
         "x-study-pack-id": savedPackId ?? "",
+        "x-study-pack-save-error": persisted.error ?? "",
       },
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to generate study pack.";
+    console.error("Study pack generation failed", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

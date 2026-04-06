@@ -39,6 +39,7 @@ export default function StudyResourcesPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [resources, setResources] = useState<SavedStudyPackSummary[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [studyPackOpen, setStudyPackOpen] = useState(false);
   const [studyPackSession, setStudyPackSession] = useState(0);
@@ -80,13 +81,29 @@ export default function StudyResourcesPage() {
 
   async function refreshResources() {
     setResourcesLoading(true);
+    setResourcesError(null);
     try {
       const response = await fetch("/api/study-packs");
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ error: "Failed to load saved study resources." }));
+        throw new Error(
+          payload.error || "Failed to load saved study resources."
+        );
+      }
       const payload = (await response.json()) as {
         authenticated: boolean;
         resources: SavedStudyPackSummary[];
       };
       setResources(Array.isArray(payload.resources) ? payload.resources : []);
+    } catch (error) {
+      setResources([]);
+      setResourcesError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load saved study resources."
+      );
     } finally {
       setResourcesLoading(false);
     }
@@ -118,9 +135,16 @@ export default function StudyResourcesPage() {
         const payload = (await response.json()) as {
           pack: StudyPack;
           text: string;
+          saved?: boolean;
+          saveError?: string | null;
         };
         setStudyPackPreview(payload);
         setSelectedSavedPreview(null);
+        if (user && payload.saved === false && payload.saveError) {
+          setStudyPackError(
+            `${payload.saveError} The study pack generated, but it was not saved.`
+          );
+        }
       } else {
         const blob = await response.blob();
         const fallback =
@@ -137,7 +161,14 @@ export default function StudyResourcesPage() {
         anchor.download = filename;
         anchor.click();
         window.URL.revokeObjectURL(url);
-        setStudyPackOpen(false);
+        const saveError = response.headers.get("x-study-pack-save-error");
+        if (user && saveError) {
+          setStudyPackError(
+            `${saveError} The file downloaded, but the study pack was not saved.`
+          );
+        } else {
+          setStudyPackOpen(false);
+        }
       }
 
       if (user) {
@@ -237,6 +268,17 @@ export default function StudyResourcesPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-4">
+          {resourcesError ? (
+            <div className="rounded-[28px] border border-rose-200 bg-rose-50 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-rose-900">
+                Saved study resources are unavailable right now.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-rose-800">
+                {resourcesError}
+              </p>
+            </div>
+          ) : null}
+
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-warm-gray">
