@@ -22,6 +22,7 @@ import {
 } from "@/lib/study-pack";
 
 const MAX_SOURCE_CHARS = 18000;
+const SECTION_CONCURRENCY = 3;
 
 interface SourceDocument {
   id: string;
@@ -187,6 +188,60 @@ ${doc.content.slice(0, MAX_SOURCE_CHARS)}
     : new Error(`Failed to generate study pack for ${doc.title}.`);
 }
 
+async function generateCombinedSectionContent(
+  doc: SourceDocument,
+  instructions: string,
+  mcqCount: number,
+  flashcardCount: number
+) {
+  const [mcqSection, flashcardSection] = await Promise.all([
+    generateSectionContent(doc, "mcq", instructions, mcqCount, flashcardCount),
+    generateSectionContent(
+      doc,
+      "flashcards",
+      instructions,
+      mcqCount,
+      flashcardCount
+    ),
+  ]);
+
+  return {
+    documentId: doc.id,
+    title: doc.title,
+    category: doc.category,
+    mcqs: mcqSection.mcqs,
+    flashcards: flashcardSection.flashcards,
+  } satisfies StudyPackSection;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+) {
+  const results = new Array<R>(items.length);
+  let currentIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const index = currentIndex;
+      currentIndex += 1;
+
+      if (index >= items.length) {
+        return;
+      }
+
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+
+  return results;
+}
+
 export async function generateStudyPack(params: {
   documents: SourceDocument[];
   contentMode: StudyPackContentMode;
@@ -209,19 +264,25 @@ export async function generateStudyPack(params: {
       mcqCount,
       flashcardCount,
     });
-  const sections: StudyPackSection[] = [];
-
-  for (const doc of params.documents) {
-    sections.push(
-      await generateSectionContent(
-        doc,
-        params.contentMode,
-        instructions,
-        mcqCount,
-        flashcardCount
-      )
-    );
-  }
+  const sections = await mapWithConcurrency(
+    params.documents,
+    SECTION_CONCURRENCY,
+    (doc) =>
+      params.contentMode === "both"
+        ? generateCombinedSectionContent(
+            doc,
+            instructions,
+            mcqCount,
+            flashcardCount
+          )
+        : generateSectionContent(
+            doc,
+            params.contentMode,
+            instructions,
+            mcqCount,
+            flashcardCount
+          )
+  );
 
   return {
     title: buildStudyPackTitle(params.documents.map((doc) => doc.title)),
