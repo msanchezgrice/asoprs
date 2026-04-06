@@ -17,7 +17,7 @@ import {
   type StudyPackOutputFormat,
 } from "@/lib/study-pack";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function isContentMode(value: unknown): value is StudyPackContentMode {
   return value === "mcq" || value === "flashcards" || value === "both";

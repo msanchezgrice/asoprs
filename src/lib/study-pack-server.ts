@@ -21,7 +21,7 @@ import {
   type StudyPackSection,
 } from "@/lib/study-pack";
 
-const MAX_SOURCE_CHARS = 18000;
+const MAX_SOURCE_CHARS = 14000;
 const SECTION_CONCURRENCY = 3;
 
 interface SourceDocument {
