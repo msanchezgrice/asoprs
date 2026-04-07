@@ -47,26 +47,32 @@ export async function createGeminiLiveSession(
     session = await ai.live.connect({
       model: config.geminiModel,
       config: {
-        responseModalities: [Modality.AUDIO, Modality.TEXT],
+        responseModalities: [Modality.AUDIO],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
         systemInstruction: { parts: [{ text: systemPrompt }] },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
       },
       callbacks: {
         onopen() {
           reconnectAttempts = 0;
         },
         onmessage(msg: LiveServerMessage) {
+          // Handle audio chunks from model
           if (msg.serverContent?.modelTurn?.parts) {
             for (const part of msg.serverContent.modelTurn.parts) {
               if (part.inlineData?.data) {
                 callbacks.onAudioChunk(part.inlineData.data as string);
               }
-              if (part.text) {
-                callbacks.onTranscript(part.text, "model");
-              }
             }
           }
-          if (msg.text) {
-            callbacks.onTranscript(msg.text, "model");
+          // Handle user speech transcription
+          if (msg.serverContent?.inputTranscription?.text) {
+            callbacks.onTranscript(msg.serverContent.inputTranscription.text, "user");
+          }
+          // Handle model speech transcription
+          if (msg.serverContent?.outputTranscription?.text) {
+            callbacks.onTranscript(msg.serverContent.outputTranscription.text, "model");
           }
         },
         onerror(error: Event) {
