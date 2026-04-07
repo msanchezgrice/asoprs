@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
 interface Proposal {
@@ -13,6 +13,36 @@ interface Proposal {
   tier: string;
   status?: string;
   reject_reason?: string;
+  feature_context?: {
+    build_status?: string;
+    github_issue_url?: string;
+    github_issue_number?: number;
+    pr_url?: string;
+    prd?: PRDData;
+    [key: string]: unknown;
+  };
+}
+
+interface PRDData {
+  problem: string;
+  solution: string;
+  acceptance_criteria: string[];
+  files_to_modify: string[];
+  test_requirements: string[];
+  rollback_plan: string;
+}
+
+interface BuildChange {
+  id: string;
+  title: string;
+  feature_context: {
+    build_status?: string;
+    github_issue_url?: string;
+    github_issue_number?: number;
+    pr_url?: string;
+    prd?: PRDData;
+    [key: string]: unknown;
+  } | null;
 }
 
 interface PMBrief {
@@ -48,6 +78,16 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [buildModal, setBuildModal] = useState<{
+    title: string;
+    prd: PRDData | null;
+    github_issue_url: string | null;
+    github_issue_number: number | null;
+  } | null>(null);
+  const [detailModal, setDetailModal] = useState<{
+    proposal: Proposal;
+    change?: BuildChange;
+  } | null>(null);
 
   const fetchBriefs = useCallback(async () => {
     setLoading(true);
@@ -87,8 +127,9 @@ export default function AdminPage() {
 
   const [buildStatus, setBuildStatus] = useState<Record<string, { url: string; number: number } | null>>({});
 
-  const triggerBuild = async (changeId: string) => {
-    setActionLoading(`build-${changeId}`);
+  const triggerBuild = async (changeId: string, briefId: string, index: number) => {
+    const buildKey = `build-${briefId}-${index}`;
+    setActionLoading(buildKey);
     try {
       const res = await fetch("/api/auto-build", {
         method: "POST",
@@ -107,6 +148,12 @@ export default function AdminPage() {
           [changeId]: null,
         }));
       }
+      setBuildModal({
+        title: data.title ?? "Build triggered",
+        prd: data.prd ?? null,
+        github_issue_url: data.github_issue_url ?? null,
+        github_issue_number: data.github_issue_number ?? null,
+      });
       await fetchBriefs();
     } catch { /* silent */ }
     setActionLoading(null);
@@ -198,7 +245,21 @@ export default function AdminPage() {
                 return (
                   <div key={i} className={`px-5 py-4 border-b border-ivory-dark last:border-b-0 ${isActioned ? "opacity-60" : ""}`}>
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => {
+                          if (proposal.status === "approved") {
+                            fetch("/api/auto-build").then(r => r.json()).then((changes: BuildChange[]) => {
+                              const match = changes.find((c) => c.title === proposal.title);
+                              setDetailModal({ proposal, change: match });
+                            }).catch(() => {
+                              setDetailModal({ proposal });
+                            });
+                          } else {
+                            setDetailModal({ proposal });
+                          }
+                        }}
+                      >
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
@@ -273,18 +334,19 @@ export default function AdminPage() {
                               );
                             }
 
+                            const buildKey = `build-${brief.id}-${i}`;
                             return (
                               <button
                                 onClick={() => {
-                                  fetch("/api/auto-build").then(r => r.json()).then((changes: Array<{id: string; title: string; feature_context: Record<string, unknown> | null}>) => {
-                                    const match = changes.find((c: {title: string}) => c.title === proposal.title);
-                                    if (match) triggerBuild(match.id);
+                                  fetch("/api/auto-build").then(r => r.json()).then((changes: Array<BuildChange>) => {
+                                    const match = changes.find((c) => c.title === proposal.title);
+                                    if (match) triggerBuild(match.id, brief.id, i);
                                   });
                                 }}
-                                disabled={actionLoading?.startsWith("build")}
+                                disabled={actionLoading === buildKey}
                                 className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
                               >
-                                {actionLoading?.startsWith("build") ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
+                                {actionLoading === buildKey ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
                                 Build
                               </button>
                             );
@@ -302,6 +364,209 @@ export default function AdminPage() {
           ))
         )}
       </div>
+
+      {/* Build Result Modal */}
+      {buildModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setBuildModal(null)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-ivory-dark">
+              <h2 className="font-[DM_Serif_Display] text-lg text-navy">{buildModal.title}</h2>
+              <button onClick={() => setBuildModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {buildModal.github_issue_url ? (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <span className="text-sm text-emerald-800 font-medium">Build triggered</span>
+                  <a href={buildModal.github_issue_url} target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1 text-xs text-emerald-700 font-medium hover:underline">
+                    Issue #{buildModal.github_issue_number} <ExternalLink size={10} />
+                  </a>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <FileText size={16} className="text-amber-600" />
+                  <span className="text-sm text-amber-800 font-medium">PRD generated — trigger build manually</span>
+                </div>
+              )}
+              {buildModal.prd && (
+                <>
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Problem</span>
+                    <p className="text-sm text-navy mt-1">{buildModal.prd.problem}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Solution</span>
+                    <p className="text-sm text-navy mt-1">{buildModal.prd.solution}</p>
+                  </div>
+                  {buildModal.prd.files_to_modify?.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Files to Modify</span>
+                      <ul className="mt-1 space-y-0.5">
+                        {buildModal.prd.files_to_modify.map((f, idx) => (
+                          <li key={idx} className="text-xs text-navy font-mono bg-ivory/50 rounded px-2 py-1">{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {buildModal.prd.acceptance_criteria?.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Acceptance Criteria</span>
+                      <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                        {buildModal.prd.acceptance_criteria.map((c, idx) => (
+                          <li key={idx} className="text-xs text-navy">{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {buildModal.prd.test_requirements?.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Test Requirements</span>
+                      <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                        {buildModal.prd.test_requirements.map((t, idx) => (
+                          <li key={idx} className="text-xs text-navy">{t}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Rollback Plan</span>
+                    <p className="text-sm text-navy mt-1">{buildModal.prd.rollback_plan}</p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-ivory-dark">
+              <button onClick={() => setBuildModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {detailModal && (() => {
+        const { proposal, change } = detailModal;
+        const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
+        const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
+        const fc = change?.feature_context ?? proposal.feature_context;
+        const prd = fc?.prd as PRDData | undefined;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setDetailModal(null)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div className="relative bg-white rounded-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-ivory-dark">
+                <h2 className="font-[DM_Serif_Display] text-lg text-navy">Proposal Detail</h2>
+                <button onClick={() => setDetailModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
+              </div>
+              <div className="px-5 py-4 space-y-4">
+                {/* Badges */}
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
+                  {proposal.status && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${proposal.status === "approved" ? "text-emerald-600 bg-emerald-100" : proposal.status === "rejected" ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"}`}>
+                      {proposal.status.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Title & description */}
+                <div>
+                  <h3 className="text-base font-semibold text-navy">{proposal.title}</h3>
+                  <p className="text-sm text-warm-gray mt-1">{proposal.description}</p>
+                </div>
+
+                {/* Evidence */}
+                <div className="bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-0.5">Evidence</span>
+                  <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                </div>
+
+                {/* PRD section (for approved+built proposals) */}
+                {prd && (
+                  <>
+                    <div className="border-t border-ivory-dark pt-4">
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">PRD</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Problem</span>
+                      <p className="text-sm text-navy mt-1">{prd.problem}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Solution</span>
+                      <p className="text-sm text-navy mt-1">{prd.solution}</p>
+                    </div>
+                    {prd.acceptance_criteria?.length > 0 && (
+                      <div>
+                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Acceptance Criteria</span>
+                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                          {prd.acceptance_criteria.map((c, idx) => (
+                            <li key={idx} className="text-xs text-navy">{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {prd.files_to_modify?.length > 0 && (
+                      <div>
+                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Files to Modify</span>
+                        <ul className="mt-1 space-y-0.5">
+                          {prd.files_to_modify.map((f, idx) => (
+                            <li key={idx} className="text-xs text-navy font-mono bg-ivory/50 rounded px-2 py-1">{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {prd.test_requirements?.length > 0 && (
+                      <div>
+                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Test Requirements</span>
+                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                          {prd.test_requirements.map((t, idx) => (
+                            <li key={idx} className="text-xs text-navy">{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Rollback Plan</span>
+                      <p className="text-sm text-navy mt-1">{prd.rollback_plan}</p>
+                    </div>
+                  </>
+                )}
+
+                {/* Build status & links */}
+                {fc && (
+                  <div className="border-t border-ivory-dark pt-4 space-y-2">
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Build Status</span>
+                    <div className="flex items-center gap-2">
+                      {fc.build_status === "pr_created" ? (
+                        <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> PR Created</span>
+                      ) : fc.build_status === "triggered" ? (
+                        <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Triggered</span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-500 flex items-center gap-1"><Clock size={12} /> {String(fc.build_status ?? "pending")}</span>
+                      )}
+                    </div>
+                    {fc.github_issue_url && (
+                      <a href={String(fc.github_issue_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-navy font-medium hover:underline">
+                        <FileText size={12} /> GitHub Issue #{String(fc.github_issue_number ?? "")} <ExternalLink size={10} />
+                      </a>
+                    )}
+                    {fc.pr_url && (
+                      <a href={String(fc.pr_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-navy font-medium hover:underline">
+                        <FileText size={12} /> Pull Request <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-3 border-t border-ivory-dark">
+                <button onClick={() => setDetailModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
