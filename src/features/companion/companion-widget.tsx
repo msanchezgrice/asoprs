@@ -256,7 +256,7 @@ export function CompanionWidget() {
   return (
     <>
       <video ref={videoRef} className="hidden" autoPlay muted playsInline />
-      <div className="fixed bottom-20 md:bottom-4 left-4 z-50">
+      <div className="fixed bottom-20 md:bottom-4 left-4 md:left-[272px] z-50">
         {/* BYO Key input */}
         {(state === "needs_key" || showKeyInput) && (
           <div className="bg-slate-900/95 border border-cyan-700/30 rounded-xl backdrop-blur-sm shadow-2xl p-4 mb-2 w-72">
