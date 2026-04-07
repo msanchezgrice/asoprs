@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { UserFeatureSlot } from "@/components/user-feature-slot";
 
 type ExamMode = "practice" | "timed";
 type QuizState = "setup" | "active" | "review";
@@ -411,6 +412,7 @@ export default function QuizPage({
 
       <div className="flex flex-1 flex-col overflow-auto px-4 py-4 pb-2 md:items-center md:px-8 md:py-6">
         <div className="w-full max-w-2xl">
+          <UserFeatureSlot name="quiz-controls" />
           {question && (
             <>
               <span
