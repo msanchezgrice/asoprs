@@ -97,6 +97,8 @@ export default function AdminPage() {
     prd: PRDData | null;
     github_issue_url: string | null;
     github_issue_number: number | null;
+    config_applied?: boolean;
+    delivery_strategy?: string;
   } | null>(null);
   const [detailModal, setDetailModal] = useState<{
     proposal: Proposal;
@@ -167,6 +169,8 @@ export default function AdminPage() {
         prd: data.prd ?? null,
         github_issue_url: data.github_issue_url ?? null,
         github_issue_number: data.github_issue_number ?? null,
+        config_applied: data.config_applied ?? false,
+        delivery_strategy: data.delivery_strategy ?? undefined,
       });
       await fetchBriefs();
     } catch { /* silent */ }
@@ -303,6 +307,15 @@ export default function AdminPage() {
                       );
                     }
 
+                    if (featureBuildStatus === "config_applied") {
+                      return (
+                        <span className="flex items-center gap-1 text-xs text-sky-600 font-medium">
+                          <CheckCircle2 size={10} />
+                          Config applied
+                        </span>
+                      );
+                    }
+
                     if (featureBuildStatus === "pr_created") {
                       return (
                         <a
@@ -430,7 +443,17 @@ export default function AdminPage() {
               <button onClick={() => setBuildModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
             </div>
             <div className="px-5 py-4 space-y-4">
-              {buildModal.github_issue_url ? (
+              {buildModal.config_applied ? (
+                <div className="flex items-center gap-2 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
+                  <CheckCircle2 size={16} className="text-sky-600" />
+                  <span className="text-sm text-sky-800 font-medium">Config applied — no code change needed</span>
+                  {buildModal.delivery_strategy && (
+                    <span className="ml-auto text-[10px] font-semibold text-sky-600 bg-sky-100 px-2 py-0.5 rounded">
+                      {buildModal.delivery_strategy.toUpperCase().replace("_", " ")}
+                    </span>
+                  )}
+                </div>
+              ) : buildModal.github_issue_url ? (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
                   <CheckCircle2 size={16} className="text-emerald-600" />
                   <span className="text-sm text-emerald-800 font-medium">Build triggered</span>
@@ -606,7 +629,9 @@ export default function AdminPage() {
                   <div className="border-t border-ivory-dark pt-4 space-y-2">
                     <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Build Status</span>
                     <div className="flex items-center gap-2">
-                      {fc.build_status === "pr_created" ? (
+                      {fc.build_status === "config_applied" ? (
+                        <span className="text-xs font-medium text-sky-600 flex items-center gap-1"><CheckCircle2 size={12} /> Config applied — no code change needed</span>
+                      ) : fc.build_status === "pr_created" ? (
                         <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> PR Created</span>
                       ) : fc.build_status === "triggered" ? (
                         <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Triggered</span>

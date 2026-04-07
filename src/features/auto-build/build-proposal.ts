@@ -79,37 +79,15 @@ Return ONLY valid JSON, no markdown fencing.`,
   };
 }
 
-export async function executeBuildPlan(
-  changeId: string,
-  prd: BuildPlan["prd"],
-  tier: string,
-): Promise<{ success: boolean; result: string }> {
-  const supabase = getServiceClient();
+function toKebabCase(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-  if (tier === "config") {
-    // Config changes are direct DB updates
-    // The PRD solution describes what to change
-    await supabase
-      .from("shipped_changes")
-      .update({
-        feature_context: {
-          prd,
-          build_status: "completed",
-          build_method: "config_update",
-          completed_at: new Date().toISOString(),
-        },
-      })
-      .eq("id", changeId);
-
-    return {
-      success: true,
-      result: `Config change applied: ${prd.solution}. Manual DB update may be needed.`,
-    };
-  }
-
-  // Code-tier: generate implementation instructions for Claude Code
-  // This creates a structured prompt that can be fed to Claude Code CLI
-  const implementationPrompt = `Implement this change in the OculoPrep study portal codebase at /Users/miguel/ASOPRS/study-portal:
+function generateGlobalFixPrompt(prd: BuildPlan["prd"]): string {
+  return `Implement this change in the OculoPrep study portal codebase at /Users/miguel/ASOPRS/study-portal:
 
 ## PRD
 - Problem: ${prd.problem}
@@ -132,6 +110,148 @@ ${prd.test_requirements.map((t) => `- ${t}`).join("\n")}
 5. Commit with message: "feat: ${prd.problem}"
 
 Do NOT modify unrelated files. Keep changes minimal and focused.`;
+}
+
+function generateConfigChangePrompt(
+  prd: BuildPlan["prd"],
+  targetUserId: string,
+): string {
+  return `This is a config-only change. No code changes needed.
+Update the database directly:
+- Table: user_memory_profiles
+- User ID: ${targetUserId}
+- Change: ${prd.solution}
+
+Run this SQL via Supabase:
+UPDATE user_memory_profiles SET config = config || '${JSON.stringify({ solution: prd.solution })}'::jsonb WHERE user_id = '${targetUserId}';`;
+}
+
+function generateContentWeightPrompt(
+  prd: BuildPlan["prd"],
+  targetUserId: string,
+): string {
+  return `This is a content weight adjustment for user ${targetUserId}.
+Update the adaptive engine configuration:
+- User ID: ${targetUserId}
+- Change: ${prd.solution}
+
+Run this SQL via Supabase:
+UPDATE user_memory_profiles SET format_usage_stats = format_usage_stats || '${JSON.stringify({ adjustment: prd.solution })}'::jsonb WHERE user_id = '${targetUserId}';`;
+}
+
+function generateIsolatedModulePrompt(
+  prd: BuildPlan["prd"],
+  targetUserId: string,
+  title: string,
+): string {
+  const featureKey = toKebabCase(title);
+  const mountPoint =
+    prd.files_to_modify.length > 0
+      ? prd.files_to_modify[0].replace(/^src\//, "").replace(/\.\w+$/, "")
+      : "global-overlay";
+
+  return `Create a new per-user feature module for the OculoPrep study portal.
+
+TARGET USER: ${targetUserId}
+FEATURE KEY: ${featureKey}
+
+## What to create
+
+1. New directory: src/features/user-features/${featureKey}/
+   - component.tsx — self-contained React component
+   - mount.ts — exports { mountPoint: "${mountPoint}" }
+
+2. Register in src/features/user-features/registry.ts:
+   Add: '${featureKey}': dynamic(() => import('./${featureKey}/component'))
+
+3. Database: Insert into user_features table:
+   INSERT INTO user_features (user_id, feature_key, feature_module, delivery_strategy, mount_point)
+   VALUES ('${targetUserId}', '${featureKey}', '${featureKey}', 'isolated_module', '${mountPoint}');
+
+## PRD
+- Problem: ${prd.problem}
+- Solution: ${prd.solution}
+- Mount point: ${mountPoint}
+
+## Rules
+- The component must be SELF-CONTAINED. Do NOT modify any existing files except registry.ts.
+- Import shared utilities from @/lib/ and @/hooks/ as needed.
+- The component receives a \`config\` prop: { config: Record<string, unknown> }
+- Run npm run test after changes.`;
+}
+
+export async function executeBuildPlan(
+  changeId: string,
+  prd: BuildPlan["prd"],
+  tier: string,
+  deliveryStrategy?: string,
+  targetUserId?: string,
+): Promise<{ success: boolean; result: string; buildStatus?: string }> {
+  const supabase = getServiceClient();
+  const strategy = deliveryStrategy ?? (tier === "config" ? "config_change" : "global_fix");
+
+  if (strategy === "config_change") {
+    const prompt = generateConfigChangePrompt(prd, targetUserId ?? "unknown");
+    await supabase
+      .from("shipped_changes")
+      .update({
+        feature_context: {
+          prd,
+          build_status: "config_applied",
+          build_method: "config_update",
+          delivery_strategy: strategy,
+          implementation_prompt: prompt,
+          completed_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", changeId);
+
+    return {
+      success: true,
+      result: prompt,
+      buildStatus: "config_applied",
+    };
+  }
+
+  if (strategy === "content_weight") {
+    const prompt = generateContentWeightPrompt(prd, targetUserId ?? "unknown");
+    await supabase
+      .from("shipped_changes")
+      .update({
+        feature_context: {
+          prd,
+          build_status: "config_applied",
+          build_method: "content_weight",
+          delivery_strategy: strategy,
+          implementation_prompt: prompt,
+          completed_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", changeId);
+
+    return {
+      success: true,
+      result: prompt,
+      buildStatus: "config_applied",
+    };
+  }
+
+  // Code-tier strategies: global_fix and isolated_module
+  let implementationPrompt: string;
+
+  if (strategy === "isolated_module") {
+    // Fetch the change title for feature key generation
+    const { data: changeData } = await supabase
+      .from("shipped_changes")
+      .select("title")
+      .eq("id", changeId)
+      .single();
+    const title = changeData?.title ?? changeId;
+    implementationPrompt = generateIsolatedModulePrompt(prd, targetUserId ?? "unknown", title);
+  } else {
+    // global_fix (default)
+    implementationPrompt = generateGlobalFixPrompt(prd);
+  }
 
   // Store the implementation prompt and mark as ready for build
   await supabase
@@ -140,6 +260,7 @@ Do NOT modify unrelated files. Keep changes minimal and focused.`;
       feature_context: {
         prd,
         build_status: "ready_for_build",
+        delivery_strategy: strategy,
         implementation_prompt: implementationPrompt,
         created_at: new Date().toISOString(),
       },
@@ -151,6 +272,9 @@ Do NOT modify unrelated files. Keep changes minimal and focused.`;
     result: implementationPrompt,
   };
 }
+
+// Exported for testing
+export { toKebabCase, generateGlobalFixPrompt, generateConfigChangePrompt, generateContentWeightPrompt, generateIsolatedModulePrompt };
 
 export async function getQueuedBuilds(): Promise<
   Array<{
