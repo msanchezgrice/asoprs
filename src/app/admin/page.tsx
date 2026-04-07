@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
 type DeliveryStrategy = "global_fix" | "config_change" | "content_weight" | "isolated_module";
@@ -40,12 +40,25 @@ interface PRDData {
 interface BuildChange {
   id: string;
   title: string;
+  description?: string;
+  origin_type?: string;
+  origin_trace?: {
+    delivery_strategy?: string;
+    target_user_id?: string;
+    confidence?: string;
+    evidence?: string;
+    [key: string]: unknown;
+  } | null;
+  shipped_at?: string;
   feature_context: {
     build_status?: string;
     github_issue_url?: string;
     github_issue_number?: number;
     pr_url?: string;
     prd?: PRDData;
+    delivery_strategy?: string;
+    triggered_at?: string;
+    completed_at?: string;
     [key: string]: unknown;
   } | null;
 }
@@ -65,6 +78,8 @@ interface PMBrief {
   action_items: Proposal[];
   status: string;
 }
+
+type AdminTab = "briefs" | "in_progress" | "shipped";
 
 const ORIGIN_LABELS: Record<string, { label: string; color: string }> = {
   request: { label: "USER REQUEST", color: "text-indigo-400 bg-indigo-500/15" },
@@ -86,12 +101,79 @@ const DELIVERY_STRATEGY_LABELS: Record<string, { label: string; color: string }>
   isolated_module: { label: "ISOLATED MODULE", color: "text-teal-400 bg-teal-500/15" },
 };
 
+const SCOPE_BADGES: Record<string, { label: string; color: string }> = {
+  global: { label: "GLOBAL", color: "text-blue-600 bg-blue-100" },
+  user: { label: "PERSONAL", color: "text-purple-600 bg-purple-100" },
+};
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function BadgeRow({ proposal, showTarget = true }: { proposal: Proposal; showTarget?: boolean }) {
+  const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
+  const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
+  const strategy = proposal.delivery_strategy ? DELIVERY_STRATEGY_LABELS[proposal.delivery_strategy] : null;
+  const scope = SCOPE_BADGES[proposal.scope ?? "global"];
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
+      {strategy && (
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
+      )}
+      {scope && (
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${scope.color}`}>{scope.label}</span>
+      )}
+      {showTarget && proposal.scope === "user" && proposal.target_user_id && (
+        <span className="text-[10px] text-sky-500 font-medium">For: {proposal.target_user_id.slice(0, 8)}...</span>
+      )}
+    </div>
+  );
+}
+
+function ChangeBadgeRow({ change }: { change: BuildChange }) {
+  const originType = change.origin_type ?? "pattern";
+  const origin = ORIGIN_LABELS[originType] ?? ORIGIN_LABELS.pattern;
+  const deliveryStrategy = change.feature_context?.delivery_strategy ?? change.origin_trace?.delivery_strategy;
+  const strategy = deliveryStrategy ? DELIVERY_STRATEGY_LABELS[deliveryStrategy] : null;
+  const targetUserId = change.origin_trace?.target_user_id;
+  const scope = targetUserId ? SCOPE_BADGES.user : SCOPE_BADGES.global;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
+      {strategy && (
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
+      )}
+      {scope && (
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${scope.color}`}>{scope.label}</span>
+      )}
+      {targetUserId && (
+        <span className="text-[10px] text-sky-500 font-medium">For: {targetUserId.slice(0, 8)}...</span>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuthSession();
   const [briefs, setBriefs] = useState<PMBrief[]>([]);
+  const [shippedChanges, setShippedChanges] = useState<BuildChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AdminTab>("briefs");
   const [buildModal, setBuildModal] = useState<{
     title: string;
     prd: PRDData | null;
@@ -104,6 +186,8 @@ export default function AdminPage() {
     proposal: Proposal;
     change?: BuildChange;
   } | null>(null);
+  const [briefDetailModal, setBriefDetailModal] = useState<PMBrief | null>(null);
+  const [expandedPRDs, setExpandedPRDs] = useState<Set<number>>(new Set());
 
   const fetchBriefs = useCallback(async () => {
     setLoading(true);
@@ -114,9 +198,22 @@ export default function AdminPage() {
     setLoading(false);
   }, []);
 
+  const fetchShippedChanges = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auto-build");
+      if (res.ok) {
+        const data: BuildChange[] = await res.json();
+        setShippedChanges(data);
+      }
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
-    if (user) fetchBriefs();
-  }, [user, fetchBriefs]);
+    if (user) {
+      fetchBriefs();
+      fetchShippedChanges();
+    }
+  }, [user, fetchBriefs, fetchShippedChanges]);
 
   const generateBrief = async () => {
     setGenerating(true);
@@ -173,6 +270,7 @@ export default function AdminPage() {
         delivery_strategy: data.delivery_strategy ?? undefined,
       });
       await fetchBriefs();
+      await fetchShippedChanges();
     } catch { /* silent */ }
     setActionLoading(null);
   };
@@ -194,10 +292,41 @@ export default function AdminPage() {
     return acc;
   }, {});
 
+  // Tab 2 & 3 data
+  const inProgressChanges = shippedChanges.filter((c) => {
+    const status = c.feature_context?.build_status;
+    return status === "triggered" || status === "ready_for_build";
+  });
+  const completedChanges = shippedChanges.filter((c) => {
+    const status = c.feature_context?.build_status;
+    return status === "completed" || status === "config_applied" || status === "pr_created";
+  });
+
+  const tabs: { key: AdminTab; label: string; count?: number }[] = [
+    { key: "briefs", label: "Briefs", count: briefs.length },
+    { key: "in_progress", label: "In Progress", count: inProgressChanges.length },
+    { key: "shipped", label: "Shipped", count: completedChanges.length },
+  ];
+
+  const togglePRD = (index: number) => {
+    setExpandedPRDs((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
   const renderBriefCard = (brief: PMBrief) => (
     <div key={brief.id} className="bg-white rounded-xl border border-ivory-dark mb-4 overflow-hidden">
-      {/* Brief header */}
-      <div className="px-5 py-3 border-b border-ivory-dark">
+      {/* Brief header — clickable to open full detail */}
+      <div
+        className="px-5 py-3 border-b border-ivory-dark cursor-pointer hover:bg-ivory/30 transition-colors"
+        onClick={() => {
+          setExpandedPRDs(new Set());
+          setBriefDetailModal(brief);
+        }}
+      >
         <div className="flex items-center justify-between">
           <div>
             <span className="text-xs text-warm-gray">
@@ -219,9 +348,6 @@ export default function AdminPage() {
 
       {/* Proposals */}
       {(brief.action_items ?? []).map((proposal, i) => {
-        const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
-        const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
-        const strategy = proposal.delivery_strategy ? DELIVERY_STRATEGY_LABELS[proposal.delivery_strategy] : null;
         const isActioned = proposal.status === "approved" || proposal.status === "rejected";
         const loadingKey = `${brief.id}-${i}`;
 
@@ -243,16 +369,8 @@ export default function AdminPage() {
                   }
                 }}
               >
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
-                  <span className="text-[10px] text-warm-gray">{proposal.tier === "config" ? "Config change" : "Code change"}</span>
-                  {strategy && (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
-                  )}
-                  {proposal.scope === "user" && proposal.target_user_id && (
-                    <span className="text-[10px] text-sky-500 font-medium">Target: {proposal.target_user_id.slice(0, 8)}...</span>
-                  )}
+                <div className="mb-1">
+                  <BadgeRow proposal={proposal} />
                 </div>
                 <h3 className="text-sm font-semibold text-navy">{proposal.title}</h3>
                 <p className="text-xs text-warm-gray mt-0.5">{proposal.description}</p>
@@ -398,35 +516,199 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* Briefs */}
-      <div className="px-6 pb-24">
-        {loading ? (
-          <div className="text-center py-12 text-warm-gray"><Loader2 className="animate-spin mx-auto" /></div>
-        ) : briefs.length === 0 ? (
-          <div className="text-center py-12 text-warm-gray">
-            <p className="text-lg font-medium">No briefs yet</p>
-            <p className="text-sm mt-1">Click &quot;Generate Brief&quot; to create one from today&apos;s feedback and companion data.</p>
-          </div>
-        ) : (
+      {/* Tabs */}
+      <div className="px-6">
+        <div className="flex gap-1 border-b border-ivory-dark">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? "border-navy text-navy"
+                  : "border-transparent text-warm-gray hover:text-navy/70"
+              }`}
+            >
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className={`ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.key ? "bg-navy/10 text-navy" : "bg-slate-100 text-warm-gray"
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="px-6 pb-24 pt-4">
+        {/* Tab 1: Briefs */}
+        {activeTab === "briefs" && (
           <>
-            {/* Global Briefs */}
-            {globalBriefs.length > 0 && (
-              <div className="mb-6">
-                <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Global Briefs</h2>
-                {globalBriefs.map(renderBriefCard)}
+            {loading ? (
+              <div className="text-center py-12 text-warm-gray"><Loader2 className="animate-spin mx-auto" /></div>
+            ) : briefs.length === 0 ? (
+              <div className="text-center py-12 text-warm-gray">
+                <p className="text-lg font-medium">No briefs yet</p>
+                <p className="text-sm mt-1">Click &quot;Generate Brief&quot; to create one from today&apos;s feedback and companion data.</p>
+              </div>
+            ) : (
+              <>
+                {globalBriefs.length > 0 && (
+                  <div className="mb-6">
+                    <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Global Briefs</h2>
+                    {globalBriefs.map(renderBriefCard)}
+                  </div>
+                )}
+                {Object.keys(groupedByUser).length > 0 && (
+                  <div className="mb-6">
+                    <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Per-User Briefs</h2>
+                    {Object.entries(groupedByUser).map(([userId, userBriefsGroup]) => (
+                      <div key={userId} className="mb-4">
+                        <div className="text-xs text-warm-gray font-medium mb-2 px-1">User: {userId.slice(0, 8)}...</div>
+                        {userBriefsGroup.map(renderBriefCard)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Tab 2: In Progress */}
+        {activeTab === "in_progress" && (
+          <>
+            {inProgressChanges.length === 0 ? (
+              <div className="text-center py-12 text-warm-gray">
+                <Hammer size={24} className="mx-auto mb-2 text-warm-gray/50" />
+                <p className="text-lg font-medium">No builds in progress</p>
+                <p className="text-sm mt-1">Approved proposals will appear here once a build is triggered.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {inProgressChanges.map((change) => {
+                  const triggeredAt = change.feature_context?.triggered_at as string | undefined;
+                  return (
+                    <div key={change.id} className="bg-white rounded-xl border border-ivory-dark p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="mb-2">
+                            <ChangeBadgeRow change={change} />
+                          </div>
+                          <h3 className="text-sm font-semibold text-navy">{change.title}</h3>
+                          {change.description && (
+                            <p className="text-xs text-warm-gray mt-0.5">{change.description}</p>
+                          )}
+                          {triggeredAt && (
+                            <p className="text-[10px] text-warm-gray mt-2">Triggered {timeAgo(triggeredAt)}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {/* Building animation */}
+                          <div className="flex items-center gap-1.5">
+                            <div className="relative flex items-center justify-center w-6 h-6">
+                              <div className="absolute w-6 h-6 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                              <Hammer size={10} className="text-amber-500" />
+                            </div>
+                            <span className="text-xs text-amber-600 font-medium">Building...</span>
+                          </div>
+                          {change.feature_context?.github_issue_url && (
+                            <a
+                              href={String(change.feature_context.github_issue_url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-navy font-medium hover:underline"
+                            >
+                              Issue #{String(change.feature_context.github_issue_number ?? "")}
+                              <ExternalLink size={10} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </>
+        )}
 
-            {/* Per-User Briefs */}
-            {Object.keys(groupedByUser).length > 0 && (
-              <div className="mb-6">
-                <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Per-User Briefs</h2>
-                {Object.entries(groupedByUser).map(([userId, userBriefsGroup]) => (
-                  <div key={userId} className="mb-4">
-                    <div className="text-xs text-warm-gray font-medium mb-2 px-1">User: {userId.slice(0, 8)}...</div>
-                    {userBriefsGroup.map(renderBriefCard)}
-                  </div>
-                ))}
+        {/* Tab 3: Shipped */}
+        {activeTab === "shipped" && (
+          <>
+            {completedChanges.length === 0 ? (
+              <div className="text-center py-12 text-warm-gray">
+                <CheckCircle2 size={24} className="mx-auto mb-2 text-warm-gray/50" />
+                <p className="text-lg font-medium">Nothing shipped yet</p>
+                <p className="text-sm mt-1">Completed builds will show up here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {completedChanges.map((change) => {
+                  const buildStatus = change.feature_context?.build_status;
+                  const completedAt = (change.feature_context?.completed_at ?? change.feature_context?.triggered_at ?? change.shipped_at) as string | undefined;
+                  return (
+                    <div key={change.id} className="bg-white rounded-xl border border-ivory-dark p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="mb-2">
+                            <ChangeBadgeRow change={change} />
+                          </div>
+                          <h3 className="text-sm font-semibold text-navy">{change.title}</h3>
+                          {change.description && (
+                            <p className="text-xs text-warm-gray mt-0.5">{change.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-2">
+                            {buildStatus === "config_applied" && (
+                              <span className="text-xs text-sky-600 font-medium flex items-center gap-1">
+                                <CheckCircle2 size={10} /> Config applied
+                              </span>
+                            )}
+                            {buildStatus === "pr_created" && (
+                              <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                                <CheckCircle2 size={10} /> PR created
+                              </span>
+                            )}
+                            {buildStatus === "completed" && (
+                              <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                                <CheckCircle2 size={10} /> Completed
+                              </span>
+                            )}
+                            {completedAt && (
+                              <span className="text-[10px] text-warm-gray">{timeAgo(completedAt)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {change.feature_context?.pr_url && (
+                            <a
+                              href={String(change.feature_context.pr_url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 font-medium px-2.5 py-1 rounded-lg hover:bg-emerald-100"
+                            >
+                              <FileText size={10} /> View PR <ExternalLink size={10} />
+                            </a>
+                          )}
+                          {change.feature_context?.github_issue_url && !change.feature_context?.pr_url && (
+                            <a
+                              href={String(change.feature_context.github_issue_url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-navy font-medium hover:underline"
+                            >
+                              Issue #{String(change.feature_context.github_issue_number ?? "")}
+                              <ExternalLink size={10} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -521,12 +803,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* Proposal Detail Modal */}
       {detailModal && (() => {
         const { proposal, change } = detailModal;
         const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
         const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
         const strategy = proposal.delivery_strategy ? DELIVERY_STRATEGY_LABELS[proposal.delivery_strategy] : null;
+        const scope = SCOPE_BADGES[proposal.scope ?? "global"];
         const fc = change?.feature_context ?? proposal.feature_context;
         const prd = fc?.prd as PRDData | undefined;
 
@@ -546,6 +829,9 @@ export default function AdminPage() {
                   {strategy && (
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
                   )}
+                  {scope && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${scope.color}`}>{scope.label}</span>
+                  )}
                   {proposal.status && (
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${proposal.status === "approved" ? "text-emerald-600 bg-emerald-100" : proposal.status === "rejected" ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"}`}>
                       {proposal.status.toUpperCase()}
@@ -556,9 +842,6 @@ export default function AdminPage() {
                 {/* Target user */}
                 {proposal.scope === "user" && proposal.target_user_id && (
                   <div className="text-xs text-sky-600 font-medium">Target user: {proposal.target_user_id}</div>
-                )}
-                {proposal.scope === "global" && (
-                  <div className="text-xs text-warm-gray font-medium">Scope: Global</div>
                 )}
 
                 {/* Title & description */}
@@ -654,6 +937,208 @@ export default function AdminPage() {
               </div>
               <div className="px-5 py-3 border-t border-ivory-dark">
                 <button onClick={() => setDetailModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Full Brief Detail Modal */}
+      {briefDetailModal && (() => {
+        const brief = briefDetailModal;
+        const rawData = brief.summary_json.raw_data;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setBriefDetailModal(null)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div className="relative bg-white rounded-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-ivory-dark sticky top-0 bg-white z-10">
+                <div>
+                  <h2 className="font-[DM_Serif_Display] text-lg text-navy">Brief Detail</h2>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs text-warm-gray">
+                      {new Date(brief.generated_at).toLocaleDateString()} {new Date(brief.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${brief.status === "actioned" ? "bg-emerald-100 text-emerald-700" : brief.status === "reviewed" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                      {brief.status}
+                    </span>
+                    <span className="text-[10px] text-warm-gray">
+                      {rawData?.feedback_count ?? 0} feedback &middot; {rawData?.session_count ?? 0} sessions
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setBriefDetailModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
+              </div>
+
+              <div className="px-6 py-5 space-y-6">
+                {/* Summary */}
+                <div>
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-1.5">Summary</span>
+                  <p className="text-sm text-navy leading-relaxed">{brief.summary_json.summary}</p>
+                </div>
+
+                {/* Top Friction Points */}
+                {brief.summary_json.top_friction_points?.length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-1.5">Top Friction Points</span>
+                    <ul className="space-y-1">
+                      {brief.summary_json.top_friction_points.map((point, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-navy">
+                          <span className="text-red-400 mt-0.5">&#8226;</span>
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Unused Features */}
+                {brief.summary_json.unused_features?.length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-1.5">Unused Features</span>
+                    <ul className="space-y-1">
+                      {brief.summary_json.unused_features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-navy">
+                          <span className="text-amber-400 mt-0.5">&#8226;</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Proposals */}
+                {(brief.action_items ?? []).length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-3">
+                      Proposals ({brief.action_items.length})
+                    </span>
+                    <div className="space-y-4">
+                      {(brief.action_items ?? []).map((proposal, i) => {
+                        const isActioned = proposal.status === "approved" || proposal.status === "rejected";
+                        const loadingKey = `${brief.id}-${i}`;
+                        const prd = proposal.feature_context?.prd;
+                        const prdExpanded = expandedPRDs.has(i);
+
+                        return (
+                          <div key={i} className={`bg-ivory/30 rounded-xl border border-ivory-dark p-4 ${isActioned ? "opacity-70" : ""}`}>
+                            {/* Badges */}
+                            <div className="mb-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <BadgeRow proposal={proposal} />
+                                {proposal.status && (
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${proposal.status === "approved" ? "text-emerald-600 bg-emerald-100" : proposal.status === "rejected" ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"}`}>
+                                    {proposal.status.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Title & description */}
+                            <h4 className="text-sm font-bold text-navy">{proposal.title}</h4>
+                            <p className="text-xs text-warm-gray mt-1">{proposal.description}</p>
+
+                            {/* Evidence */}
+                            <div className="mt-3 bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
+                              <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-0.5">Evidence</span>
+                              <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                            </div>
+
+                            {/* Expandable PRD */}
+                            {prd && (
+                              <div className="mt-3">
+                                <button
+                                  onClick={() => togglePRD(i)}
+                                  className="flex items-center gap-1 text-[10px] font-semibold text-navy/60 hover:text-navy uppercase tracking-wider"
+                                >
+                                  {prdExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                  PRD Details
+                                </button>
+                                {prdExpanded && (
+                                  <div className="mt-2 pl-4 border-l border-ivory-dark space-y-3">
+                                    <div>
+                                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Problem</span>
+                                      <p className="text-xs text-navy mt-0.5">{prd.problem}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Solution</span>
+                                      <p className="text-xs text-navy mt-0.5">{prd.solution}</p>
+                                    </div>
+                                    {prd.acceptance_criteria?.length > 0 && (
+                                      <div>
+                                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Acceptance Criteria</span>
+                                        <ul className="mt-1 space-y-0.5">
+                                          {prd.acceptance_criteria.map((c, idx) => (
+                                            <li key={idx} className="flex items-start gap-2 text-xs text-navy">
+                                              <span className="text-warm-gray">&#9744;</span>
+                                              <span>{c}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {prd.files_to_modify?.length > 0 && (
+                                      <div>
+                                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Files to Modify</span>
+                                        <ul className="mt-1 space-y-0.5">
+                                          {prd.files_to_modify.map((f, idx) => (
+                                            <li key={idx} className="text-xs text-navy font-mono bg-white rounded px-2 py-1">{f}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {prd.test_requirements?.length > 0 && (
+                                      <div>
+                                        <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Test Requirements</span>
+                                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                                          {prd.test_requirements.map((t, idx) => (
+                                            <li key={idx} className="text-xs text-navy">{t}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Rollback Plan</span>
+                                      <p className="text-xs text-navy mt-0.5">{prd.rollback_plan}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action buttons */}
+                            {!isActioned && (
+                              <div className="flex gap-2 mt-3">
+                                <button
+                                  onClick={() => handleProposal(brief.id, i, "approve")}
+                                  disabled={actionLoading === loadingKey}
+                                  className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
+                                >
+                                  {actionLoading === loadingKey ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleProposal(brief.id, i, "reject")}
+                                  disabled={actionLoading === loadingKey}
+                                  className="flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  <XCircle size={12} />
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3 border-t border-ivory-dark sticky bottom-0 bg-white">
+                <button onClick={() => setBriefDetailModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
               </div>
             </div>
           </div>
