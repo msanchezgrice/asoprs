@@ -245,7 +245,7 @@ export default function ReaderPage({
         if (Array.isArray(data)) setHighlights(data);
       })
       .catch(() => {});
-  }, [id, user?.id]);
+  }, [id, user]);
 
   const saveHighlight = useCallback(
     async (chunkIndex: number, startOffset: number, endOffset: number, text: string) => {
@@ -574,6 +574,7 @@ export default function ReaderPage({
                 }))}
               highlightMode={highlightMode}
               onSaveHighlight={savePdfHighlight}
+              onDeleteHighlight={deleteHighlight}
             />
           ) : (
             <div className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8" ref={contentRef}>
