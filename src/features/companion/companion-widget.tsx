@@ -50,6 +50,7 @@ export function CompanionWidget() {
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playCtxRef = useRef<AudioContext | null>(null);
+  const nextPlayTimeRef = useRef<number>(0);
 
   const startCompanion = useCallback(async () => {
     const currentKey = getStoredApiKey();
@@ -82,23 +83,30 @@ export function CompanionWidget() {
         },
         {
           onAudioChunk(base64Audio) {
-            if (!playCtxRef.current) return;
+            const playCtx = playCtxRef.current;
+            if (!playCtx) return;
+            if (playCtx.state === "suspended") playCtx.resume();
             try {
               const binaryString = atob(base64Audio);
               const bytes = new Uint8Array(binaryString.length);
               for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
               }
-              const buffer = playCtxRef.current.createBuffer(1, bytes.length / 2, 24000);
+              const buffer = playCtx.createBuffer(1, bytes.length / 2, 24000);
               const channelData = buffer.getChannelData(0);
               const dataView = new DataView(bytes.buffer);
               for (let i = 0; i < channelData.length; i++) {
                 channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
               }
-              const source = playCtxRef.current.createBufferSource();
+              const source = playCtx.createBufferSource();
               source.buffer = buffer;
-              source.connect(playCtxRef.current.destination);
-              source.start();
+              source.connect(playCtx.destination);
+              // Schedule sequentially — don't overlap
+              if (nextPlayTimeRef.current < playCtx.currentTime) {
+                nextPlayTimeRef.current = playCtx.currentTime;
+              }
+              source.start(nextPlayTimeRef.current);
+              nextPlayTimeRef.current += buffer.duration;
             } catch {
               // silent audio decode failure
             }
