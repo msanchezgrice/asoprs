@@ -40,7 +40,7 @@ export function CompanionWidget() {
   const [frustrationCount, setFrustrationCount] = useState(0);
   const [featureRequestCount, setFeatureRequestCount] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  const [transcript, setTranscript] = useState<Array<{ role: string; text: string; time: string }>>([]);
+  const [transcript, setTranscript] = useState<Array<{ role: string; text: string; time: string; complete?: boolean }>>([]);
 
   const sessionRef = useRef<GeminiLiveSession | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -104,15 +104,35 @@ export function CompanionWidget() {
             }
           },
           onTranscript(text, role) {
+            // Live preview of buffered transcript (updates as words come in)
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            setTranscript((prev) => [...prev.slice(-50), { role, text, time: timeStr }]);
+            setTranscript((prev) => {
+              // Update the last entry if same role (buffering), otherwise add new
+              const last = prev[prev.length - 1];
+              if (last && last.role === role && !last.complete) {
+                return [...prev.slice(0, -1), { ...last, text, time: timeStr }];
+              }
+              return [...prev.slice(-50), { role, text, time: timeStr, complete: false }];
+            });
+          },
+          onTurnComplete(fullText, role) {
+            // Complete turn — save to DB and mark as complete in transcript
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            setTranscript((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === role) {
+                return [...prev.slice(0, -1), { role, text: fullText, time: timeStr, complete: true }];
+              }
+              return [...prev.slice(-50), { role, text: fullText, time: timeStr, complete: true }];
+            });
 
             const turn: CompanionTurn = {
               id: crypto.randomUUID(),
               session_id: sessionIdRef.current!,
               role,
-              transcript: text,
+              transcript: fullText,
               prompt_kind: role === "user" ? "user-voice" : "model-response",
               started_at: now.toISOString(),
               ended_at: now.toISOString(),
@@ -120,7 +140,7 @@ export function CompanionWidget() {
             turnsRef.current.push(turn);
             void saveTurn(sessionIdRef.current!, turn);
 
-            const lower = text.toLowerCase();
+            const lower = fullText.toLowerCase();
             if (lower.includes("i wish") || lower.includes("why can't") || lower.includes("this should")) {
               setFeatureRequestCount((c) => c + 1);
             }
@@ -167,7 +187,7 @@ export function CompanionWidget() {
 
       // Start mic capture — BrowserBud pattern
       const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: 16000, channelCount: 1 },
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
       const micCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({ sampleRate: 16000 });
       void micCtx.resume().catch(() => {});

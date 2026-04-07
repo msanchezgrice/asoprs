@@ -97,7 +97,7 @@ export default function CompanionTestPage() {
       // Test mic
       try {
         const micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { sampleRate: 16000, channelCount: 1 },
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
         });
         log("Mic access granted. Tracks: " + micStream.getTracks().length);
 

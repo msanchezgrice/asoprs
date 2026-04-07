@@ -24,6 +24,7 @@ export interface GeminiLiveSession {
 export interface GeminiLiveCallbacks {
   onAudioChunk: (base64Audio: string) => void;
   onTranscript: (text: string, role: "user" | "model") => void;
+  onTurnComplete: (fullText: string, role: "user" | "model") => void;
   onToolCall: (name: string, args: Record<string, unknown>) => void;
   onDisconnect: (reason: string) => void;
   onReconnecting: (attempt: number) => void;
@@ -43,6 +44,11 @@ export async function createGeminiLiveSession(
 
   async function connect() {
     const systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+
+    // Transcript buffering — accumulate fragments, emit on turnComplete
+    let userTranscriptBuffer = "";
+    let modelTranscriptBuffer = "";
+    let userFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
     session = await ai.live.connect({
       model: config.geminiModel,
@@ -66,13 +72,33 @@ export async function createGeminiLiveSession(
               }
             }
           }
-          // Handle user speech transcription
+
+          // Buffer user speech transcription
           if (msg.serverContent?.inputTranscription?.text) {
-            callbacks.onTranscript(msg.serverContent.inputTranscription.text, "user");
+            userTranscriptBuffer += msg.serverContent.inputTranscription.text;
+            callbacks.onTranscript(userTranscriptBuffer, "user");
+            // Flush user transcript after 2s of silence
+            if (userFlushTimer) clearTimeout(userFlushTimer);
+            userFlushTimer = setTimeout(() => {
+              if (userTranscriptBuffer.trim()) {
+                callbacks.onTurnComplete(userTranscriptBuffer.trim(), "user");
+                userTranscriptBuffer = "";
+              }
+            }, 2000);
           }
-          // Handle model speech transcription
+
+          // Buffer model speech transcription
           if (msg.serverContent?.outputTranscription?.text) {
-            callbacks.onTranscript(msg.serverContent.outputTranscription.text, "model");
+            modelTranscriptBuffer += msg.serverContent.outputTranscription.text;
+            callbacks.onTranscript(modelTranscriptBuffer, "model");
+          }
+
+          // On turn complete, flush model buffer
+          if (msg.serverContent?.turnComplete) {
+            if (modelTranscriptBuffer.trim()) {
+              callbacks.onTurnComplete(modelTranscriptBuffer.trim(), "model");
+              modelTranscriptBuffer = "";
+            }
           }
         },
         onerror(error: Event) {
