@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
 interface Proposal {
@@ -80,6 +80,23 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brief_id: briefId, proposal_index: index, action }),
       });
+      await fetchBriefs();
+    } catch { /* silent */ }
+    setActionLoading(null);
+  };
+
+  const triggerBuild = async (changeId: string) => {
+    setActionLoading(`build-${changeId}`);
+    try {
+      const res = await fetch("/api/auto-build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ change_id: changeId }),
+      });
+      const data = await res.json();
+      if (data.prd) {
+        alert(`PRD generated! Build plan ready.\n\nProblem: ${data.prd.problem}\nFiles: ${data.prd.files_to_modify?.join(", ")}`);
+      }
       await fetchBriefs();
     } catch { /* silent */ }
     setActionLoading(null);
@@ -207,7 +224,23 @@ export default function AdminPage() {
                       )}
 
                       {proposal.status === "approved" && (
-                        <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
+                          <button
+                            onClick={() => {
+                              // Find the shipped_change for this proposal by querying
+                              fetch("/api/auto-build").then(r => r.json()).then((changes: Array<{id: string; title: string; feature_context: Record<string, unknown> | null}>) => {
+                                const match = changes.find((c: {title: string}) => c.title === proposal.title);
+                                if (match) triggerBuild(match.id);
+                              });
+                            }}
+                            disabled={actionLoading?.startsWith("build")}
+                            className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
+                          >
+                            {actionLoading?.startsWith("build") ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
+                            Build
+                          </button>
+                        </div>
                       )}
                       {proposal.status === "rejected" && (
                         <span className="text-xs text-red-500 font-medium flex items-center gap-1"><XCircle size={12} /> Rejected</span>
