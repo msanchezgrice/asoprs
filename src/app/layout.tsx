@@ -6,6 +6,7 @@ import { PostHogProvider } from "@/providers/posthog-provider";
 import { CompanionWidget } from "@/features/companion/companion-widget";
 import { ChangeTour } from "@/features/change-tour/change-tour";
 import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
+import { UserFeatureSlot } from "@/components/user-feature-slot";
 
 const SITE_NAME = "ASOPRS Study Portal";
 const SITE_DESCRIPTION =
@@ -91,6 +92,7 @@ export default function RootLayout({
           <CompanionWidget />
           <ChangeTour />
           <AnnoyanceInbox screen="global" />
+          <UserFeatureSlot name="global-overlay" />
           <BottomNav />
         </PostHogProvider>
       </body>

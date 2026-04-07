@@ -65,7 +65,12 @@ export async function PATCH(req: NextRequest) {
         title: proposal.title,
         description: proposal.description,
         origin_type: proposal.origin_type ?? "pattern",
-        origin_trace: { evidence: proposal.evidence, confidence: proposal.confidence },
+        origin_trace: {
+          evidence: proposal.evidence,
+          confidence: proposal.confidence,
+          delivery_strategy: proposal.delivery_strategy ?? null,
+          target_user_id: proposal.target_user_id ?? null,
+        },
         feature_context: feature_context ?? null,
         status: "active",
       })

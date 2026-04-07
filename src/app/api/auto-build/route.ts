@@ -31,16 +31,21 @@ export async function POST(req: NextRequest) {
 
   try {
     // Step 1: Generate PRD
+    const tier = change.feature_context?.tier ?? "code";
     const prd = await generateBuildPlan(
       change.title,
       change.description ?? "",
       change.origin_trace?.evidence ?? "",
-      change.feature_context?.tier ?? "code",
+      tier,
     );
 
-    // Step 2: Execute build plan (generates implementation prompt)
-    const tier = change.feature_context?.tier ?? "code";
-    const result = await executeBuildPlan(change_id, prd, tier);
+    // Extract delivery_strategy and target_user_id from origin_trace
+    const originTrace = change.origin_trace as Record<string, unknown> | null;
+    const deliveryStrategy = (originTrace?.delivery_strategy as string) ?? undefined;
+    const targetUserId = (originTrace?.target_user_id as string) ?? undefined;
+
+    // Step 2: Execute build plan (generates strategy-specific implementation prompt)
+    const result = await executeBuildPlan(change_id, prd, tier, deliveryStrategy, targetUserId);
 
     // Check if already triggered (dedup)
     const existingContext = change.feature_context as Record<string, unknown> | null;
@@ -55,11 +60,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // For config_change and content_weight: no GitHub Issue needed
+    if (result.buildStatus === "config_applied") {
+      return NextResponse.json({
+        change_id,
+        prd,
+        build_result: result,
+        delivery_strategy: deliveryStrategy,
+        config_applied: true,
+        github_issue_url: null,
+        github_issue_number: null,
+      });
+    }
+
     let github_issue_url: string | null = null;
     let github_issue_number: number | null = null;
 
-    // Step 3: For code-tier changes, create GitHub Issue to trigger auto-build
-    if (result.success && tier === "code" && process.env.GITHUB_TOKEN) {
+    // Step 3: For code-tier strategies (global_fix, isolated_module), create GitHub Issue
+    if (result.success && process.env.GITHUB_TOKEN) {
       try {
         const issueRes = await fetch(
           "https://api.github.com/repos/msanchezgrice/asoprs/issues",
@@ -91,6 +109,7 @@ export async function POST(req: NextRequest) {
                 ...change.feature_context,
                 prd,
                 build_status: "triggered",
+                delivery_strategy: deliveryStrategy,
                 github_issue_url: issue.html_url,
                 github_issue_number: issue.number,
                 triggered_at: new Date().toISOString(),
@@ -108,6 +127,7 @@ export async function POST(req: NextRequest) {
       change_id,
       prd,
       build_result: result,
+      delivery_strategy: deliveryStrategy,
       github_issue_url,
       github_issue_number,
     });

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
+type DeliveryStrategy = "global_fix" | "config_change" | "content_weight" | "isolated_module";
+
 interface Proposal {
   title: string;
   description: string;
@@ -11,6 +13,9 @@ interface Proposal {
   evidence: string;
   confidence: string;
   tier: string;
+  delivery_strategy?: DeliveryStrategy;
+  scope?: "global" | "user";
+  target_user_id?: string | null;
   status?: string;
   reject_reason?: string;
   feature_context?: {
@@ -48,6 +53,8 @@ interface BuildChange {
 interface PMBrief {
   id: string;
   generated_at: string;
+  user_id: string | null;
+  brief_type: "global" | "user";
   summary_json: {
     summary: string;
     top_friction_points: string[];
@@ -72,6 +79,13 @@ const CONFIDENCE_COLORS: Record<string, string> = {
   low: "text-slate-400 bg-slate-500/15",
 };
 
+const DELIVERY_STRATEGY_LABELS: Record<string, { label: string; color: string }> = {
+  global_fix: { label: "GLOBAL FIX", color: "text-red-400 bg-red-500/15" },
+  config_change: { label: "CONFIG", color: "text-sky-400 bg-sky-500/15" },
+  content_weight: { label: "CONTENT WEIGHT", color: "text-violet-400 bg-violet-500/15" },
+  isolated_module: { label: "ISOLATED MODULE", color: "text-teal-400 bg-teal-500/15" },
+};
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuthSession();
   const [briefs, setBriefs] = useState<PMBrief[]>([]);
@@ -83,6 +97,8 @@ export default function AdminPage() {
     prd: PRDData | null;
     github_issue_url: string | null;
     github_issue_number: number | null;
+    config_applied?: boolean;
+    delivery_strategy?: string;
   } | null>(null);
   const [detailModal, setDetailModal] = useState<{
     proposal: Proposal;
@@ -153,6 +169,8 @@ export default function AdminPage() {
         prd: data.prd ?? null,
         github_issue_url: data.github_issue_url ?? null,
         github_issue_number: data.github_issue_number ?? null,
+        config_applied: data.config_applied ?? false,
+        delivery_strategy: data.delivery_strategy ?? undefined,
       });
       await fetchBriefs();
     } catch { /* silent */ }
@@ -166,6 +184,181 @@ export default function AdminPage() {
   const approvedCount = briefs.reduce((n, b) => n + (b.action_items ?? []).filter((p) => p.status === "approved").length, 0);
   const rejectedCount = briefs.reduce((n, b) => n + (b.action_items ?? []).filter((p) => p.status === "rejected").length, 0);
   const approveRate = totalProposals > 0 ? Math.round((approvedCount / totalProposals) * 100) : 0;
+
+  const globalBriefs = briefs.filter((b) => !b.brief_type || b.brief_type === "global");
+  const userBriefs = briefs.filter((b) => b.brief_type === "user");
+  const groupedByUser = userBriefs.reduce<Record<string, PMBrief[]>>((acc, brief) => {
+    const uid = brief.user_id ?? "unknown";
+    if (!acc[uid]) acc[uid] = [];
+    acc[uid].push(brief);
+    return acc;
+  }, {});
+
+  const renderBriefCard = (brief: PMBrief) => (
+    <div key={brief.id} className="bg-white rounded-xl border border-ivory-dark mb-4 overflow-hidden">
+      {/* Brief header */}
+      <div className="px-5 py-3 border-b border-ivory-dark">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs text-warm-gray">
+              {new Date(brief.generated_at).toLocaleDateString()} {new Date(brief.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <span className="text-xs text-warm-gray ml-3">
+              {brief.summary_json.raw_data?.feedback_count ?? 0} feedback &middot; {brief.summary_json.raw_data?.session_count ?? 0} sessions
+            </span>
+            {brief.brief_type === "user" && brief.user_id && (
+              <span className="text-xs text-sky-600 ml-3">User: {brief.user_id.slice(0, 8)}...</span>
+            )}
+          </div>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${brief.status === "actioned" ? "bg-emerald-100 text-emerald-700" : brief.status === "reviewed" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+            {brief.status}
+          </span>
+        </div>
+        <p className="text-sm text-navy mt-1">{brief.summary_json.summary}</p>
+      </div>
+
+      {/* Proposals */}
+      {(brief.action_items ?? []).map((proposal, i) => {
+        const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
+        const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
+        const strategy = proposal.delivery_strategy ? DELIVERY_STRATEGY_LABELS[proposal.delivery_strategy] : null;
+        const isActioned = proposal.status === "approved" || proposal.status === "rejected";
+        const loadingKey = `${brief.id}-${i}`;
+
+        return (
+          <div key={i} className={`px-5 py-4 border-b border-ivory-dark last:border-b-0 ${isActioned ? "opacity-60" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div
+                className="flex-1 cursor-pointer"
+                onClick={() => {
+                  if (proposal.status === "approved") {
+                    fetch("/api/auto-build").then(r => r.json()).then((changes: BuildChange[]) => {
+                      const match = changes.find((c) => c.title === proposal.title);
+                      setDetailModal({ proposal, change: match });
+                    }).catch(() => {
+                      setDetailModal({ proposal });
+                    });
+                  } else {
+                    setDetailModal({ proposal });
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
+                  <span className="text-[10px] text-warm-gray">{proposal.tier === "config" ? "Config change" : "Code change"}</span>
+                  {strategy && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
+                  )}
+                  {proposal.scope === "user" && proposal.target_user_id && (
+                    <span className="text-[10px] text-sky-500 font-medium">Target: {proposal.target_user_id.slice(0, 8)}...</span>
+                  )}
+                </div>
+                <h3 className="text-sm font-semibold text-navy">{proposal.title}</h3>
+                <p className="text-xs text-warm-gray mt-0.5">{proposal.description}</p>
+                <div className="mt-2 bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
+                  <span className="text-[10px] text-warm-gray block mb-0.5">EVIDENCE:</span>
+                  <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                </div>
+              </div>
+
+              {!isActioned && (
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleProposal(brief.id, i, "approve")}
+                    disabled={actionLoading === loadingKey}
+                    className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {actionLoading === loadingKey ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleProposal(brief.id, i, "reject")}
+                    disabled={actionLoading === loadingKey}
+                    className="flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <XCircle size={12} />
+                    Reject
+                  </button>
+                </div>
+              )}
+
+              {proposal.status === "approved" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
+                  {(() => {
+                    const localStatus = Object.values(buildStatus).find(Boolean);
+                    const featureBuildStatus = proposal.feature_context?.build_status;
+                    const issueUrl = proposal.feature_context?.github_issue_url;
+
+                    if (featureBuildStatus === "triggered" || localStatus) {
+                      const url = issueUrl || localStatus?.url;
+                      return (
+                        <a
+                          href={url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-amber-600 font-medium hover:underline"
+                        >
+                          <Loader2 size={10} className="animate-spin" />
+                          Building...
+                          <ExternalLink size={10} />
+                        </a>
+                      );
+                    }
+
+                    if (featureBuildStatus === "config_applied") {
+                      return (
+                        <span className="flex items-center gap-1 text-xs text-sky-600 font-medium">
+                          <CheckCircle2 size={10} />
+                          Config applied
+                        </span>
+                      );
+                    }
+
+                    if (featureBuildStatus === "pr_created") {
+                      return (
+                        <a
+                          href={issueUrl ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
+                        >
+                          <FileText size={10} />
+                          View PR
+                          <ExternalLink size={10} />
+                        </a>
+                      );
+                    }
+
+                    const buildKey = `build-${brief.id}-${i}`;
+                    return (
+                      <button
+                        onClick={() => {
+                          fetch("/api/auto-build").then(r => r.json()).then((changes: Array<BuildChange>) => {
+                            const match = changes.find((c) => c.title === proposal.title);
+                            if (match) triggerBuild(match.id, brief.id, i);
+                          });
+                        }}
+                        disabled={actionLoading === buildKey}
+                        className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
+                      >
+                        {actionLoading === buildKey ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
+                        Build
+                      </button>
+                    );
+                  })()}
+                </div>
+              )}
+              {proposal.status === "rejected" && (
+                <span className="text-xs text-red-500 font-medium flex items-center gap-1"><XCircle size={12} /> Rejected</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="min-h-dvh bg-parchment">
@@ -212,156 +405,31 @@ export default function AdminPage() {
         ) : briefs.length === 0 ? (
           <div className="text-center py-12 text-warm-gray">
             <p className="text-lg font-medium">No briefs yet</p>
-            <p className="text-sm mt-1">Click "Generate Brief" to create one from today's feedback and companion data.</p>
+            <p className="text-sm mt-1">Click &quot;Generate Brief&quot; to create one from today&apos;s feedback and companion data.</p>
           </div>
         ) : (
-          briefs.map((brief) => (
-            <div key={brief.id} className="bg-white rounded-xl border border-ivory-dark mb-4 overflow-hidden">
-              {/* Brief header */}
-              <div className="px-5 py-3 border-b border-ivory-dark">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs text-warm-gray">
-                      {new Date(brief.generated_at).toLocaleDateString()} {new Date(brief.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <span className="text-xs text-warm-gray ml-3">
-                      {brief.summary_json.raw_data?.feedback_count ?? 0} feedback &middot; {brief.summary_json.raw_data?.session_count ?? 0} sessions
-                    </span>
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${brief.status === "actioned" ? "bg-emerald-100 text-emerald-700" : brief.status === "reviewed" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                    {brief.status}
-                  </span>
-                </div>
-                <p className="text-sm text-navy mt-1">{brief.summary_json.summary}</p>
+          <>
+            {/* Global Briefs */}
+            {globalBriefs.length > 0 && (
+              <div className="mb-6">
+                <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Global Briefs</h2>
+                {globalBriefs.map(renderBriefCard)}
               </div>
+            )}
 
-              {/* Proposals */}
-              {(brief.action_items ?? []).map((proposal, i) => {
-                const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
-                const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
-                const isActioned = proposal.status === "approved" || proposal.status === "rejected";
-                const loadingKey = `${brief.id}-${i}`;
-
-                return (
-                  <div key={i} className={`px-5 py-4 border-b border-ivory-dark last:border-b-0 ${isActioned ? "opacity-60" : ""}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => {
-                          if (proposal.status === "approved") {
-                            fetch("/api/auto-build").then(r => r.json()).then((changes: BuildChange[]) => {
-                              const match = changes.find((c) => c.title === proposal.title);
-                              setDetailModal({ proposal, change: match });
-                            }).catch(() => {
-                              setDetailModal({ proposal });
-                            });
-                          } else {
-                            setDetailModal({ proposal });
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
-                          <span className="text-[10px] text-warm-gray">{proposal.tier === "config" ? "Config change" : "Code change"}</span>
-                        </div>
-                        <h3 className="text-sm font-semibold text-navy">{proposal.title}</h3>
-                        <p className="text-xs text-warm-gray mt-0.5">{proposal.description}</p>
-                        <div className="mt-2 bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
-                          <span className="text-[10px] text-warm-gray block mb-0.5">EVIDENCE:</span>
-                          <span className="text-xs text-navy/80">{proposal.evidence}</span>
-                        </div>
-                      </div>
-
-                      {!isActioned && (
-                        <div className="flex gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => handleProposal(brief.id, i, "approve")}
-                            disabled={actionLoading === loadingKey}
-                            className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
-                          >
-                            {actionLoading === loadingKey ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleProposal(brief.id, i, "reject")}
-                            disabled={actionLoading === loadingKey}
-                            className="flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <XCircle size={12} />
-                            Reject
-                          </button>
-                        </div>
-                      )}
-
-                      {proposal.status === "approved" && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
-                          {(() => {
-                            // Check for build status from feature_context or local state
-                            const localStatus = Object.values(buildStatus).find(Boolean);
-                            const featureBuildStatus = (proposal as Proposal & { feature_context?: { build_status?: string; github_issue_url?: string } }).feature_context?.build_status;
-                            const issueUrl = (proposal as Proposal & { feature_context?: { github_issue_url?: string } }).feature_context?.github_issue_url;
-
-                            if (featureBuildStatus === "triggered" || localStatus) {
-                              const url = issueUrl || localStatus?.url;
-                              return (
-                                <a
-                                  href={url ?? "#"}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-amber-600 font-medium hover:underline"
-                                >
-                                  <Loader2 size={10} className="animate-spin" />
-                                  Building...
-                                  <ExternalLink size={10} />
-                                </a>
-                              );
-                            }
-
-                            if (featureBuildStatus === "pr_created") {
-                              return (
-                                <a
-                                  href={issueUrl ?? "#"}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
-                                >
-                                  <FileText size={10} />
-                                  View PR
-                                  <ExternalLink size={10} />
-                                </a>
-                              );
-                            }
-
-                            const buildKey = `build-${brief.id}-${i}`;
-                            return (
-                              <button
-                                onClick={() => {
-                                  fetch("/api/auto-build").then(r => r.json()).then((changes: Array<BuildChange>) => {
-                                    const match = changes.find((c) => c.title === proposal.title);
-                                    if (match) triggerBuild(match.id, brief.id, i);
-                                  });
-                                }}
-                                disabled={actionLoading === buildKey}
-                                className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
-                              >
-                                {actionLoading === buildKey ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
-                                Build
-                              </button>
-                            );
-                          })()}
-                        </div>
-                      )}
-                      {proposal.status === "rejected" && (
-                        <span className="text-xs text-red-500 font-medium flex items-center gap-1"><XCircle size={12} /> Rejected</span>
-                      )}
-                    </div>
+            {/* Per-User Briefs */}
+            {Object.keys(groupedByUser).length > 0 && (
+              <div className="mb-6">
+                <h2 className="font-[DM_Serif_Display] text-lg text-navy mb-3">Per-User Briefs</h2>
+                {Object.entries(groupedByUser).map(([userId, userBriefsGroup]) => (
+                  <div key={userId} className="mb-4">
+                    <div className="text-xs text-warm-gray font-medium mb-2 px-1">User: {userId.slice(0, 8)}...</div>
+                    {userBriefsGroup.map(renderBriefCard)}
                   </div>
-                );
-              })}
-            </div>
-          ))
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -375,7 +443,17 @@ export default function AdminPage() {
               <button onClick={() => setBuildModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
             </div>
             <div className="px-5 py-4 space-y-4">
-              {buildModal.github_issue_url ? (
+              {buildModal.config_applied ? (
+                <div className="flex items-center gap-2 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
+                  <CheckCircle2 size={16} className="text-sky-600" />
+                  <span className="text-sm text-sky-800 font-medium">Config applied — no code change needed</span>
+                  {buildModal.delivery_strategy && (
+                    <span className="ml-auto text-[10px] font-semibold text-sky-600 bg-sky-100 px-2 py-0.5 rounded">
+                      {buildModal.delivery_strategy.toUpperCase().replace("_", " ")}
+                    </span>
+                  )}
+                </div>
+              ) : buildModal.github_issue_url ? (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
                   <CheckCircle2 size={16} className="text-emerald-600" />
                   <span className="text-sm text-emerald-800 font-medium">Build triggered</span>
@@ -448,6 +526,7 @@ export default function AdminPage() {
         const { proposal, change } = detailModal;
         const origin = ORIGIN_LABELS[proposal.origin_type] ?? ORIGIN_LABELS.pattern;
         const conf = CONFIDENCE_COLORS[proposal.confidence] ?? CONFIDENCE_COLORS.low;
+        const strategy = proposal.delivery_strategy ? DELIVERY_STRATEGY_LABELS[proposal.delivery_strategy] : null;
         const fc = change?.feature_context ?? proposal.feature_context;
         const prd = fc?.prd as PRDData | undefined;
 
@@ -461,15 +540,26 @@ export default function AdminPage() {
               </div>
               <div className="px-5 py-4 space-y-4">
                 {/* Badges */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
+                  {strategy && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${strategy.color}`}>{strategy.label}</span>
+                  )}
                   {proposal.status && (
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${proposal.status === "approved" ? "text-emerald-600 bg-emerald-100" : proposal.status === "rejected" ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"}`}>
                       {proposal.status.toUpperCase()}
                     </span>
                   )}
                 </div>
+
+                {/* Target user */}
+                {proposal.scope === "user" && proposal.target_user_id && (
+                  <div className="text-xs text-sky-600 font-medium">Target user: {proposal.target_user_id}</div>
+                )}
+                {proposal.scope === "global" && (
+                  <div className="text-xs text-warm-gray font-medium">Scope: Global</div>
+                )}
 
                 {/* Title & description */}
                 <div>
@@ -539,7 +629,9 @@ export default function AdminPage() {
                   <div className="border-t border-ivory-dark pt-4 space-y-2">
                     <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Build Status</span>
                     <div className="flex items-center gap-2">
-                      {fc.build_status === "pr_created" ? (
+                      {fc.build_status === "config_applied" ? (
+                        <span className="text-xs font-medium text-sky-600 flex items-center gap-1"><CheckCircle2 size={12} /> Config applied — no code change needed</span>
+                      ) : fc.build_status === "pr_created" ? (
                         <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> PR Created</span>
                       ) : fc.build_status === "triggered" ? (
                         <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Triggered</span>

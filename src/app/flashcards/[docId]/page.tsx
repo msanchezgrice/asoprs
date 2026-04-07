@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { UserFeatureSlot } from "@/components/user-feature-slot";
 
 type StudyResult = "got_it" | "missed" | null;
 
@@ -457,6 +458,8 @@ export default function FlashcardPage({
                 <X size={14} className="text-coral" /> {missed} missed
               </span>
             </div>
+
+            <UserFeatureSlot name="flashcard-tools" />
           </>
         )}
       </div>

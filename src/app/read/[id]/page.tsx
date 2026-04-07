@@ -20,6 +20,7 @@ import {
 import { CATEGORY_META, type Category } from "@/data/sample-documents";
 import { use } from "react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { UserFeatureSlot } from "@/components/user-feature-slot";
 import {
   type PdfHighlightRect,
   isPdfHighlightRectArray,
@@ -557,6 +558,7 @@ export default function ReaderPage({
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col min-w-0">
+          <UserFeatureSlot name="reader-sidebar" />
           {viewMode === "pdf" && pdfSrc ? (
             <PdfReader
               url={pdfSrc}
