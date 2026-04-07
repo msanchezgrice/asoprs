@@ -1,32 +1,34 @@
 class PcmRecorderProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
-    this._buffer = [];
-    this._bufferSize = 2048;
+    const requestedChunkSize = options?.processorOptions?.chunkSize;
+    this.chunkSize = Number.isInteger(requestedChunkSize) && requestedChunkSize > 0 ? requestedChunkSize : 2048;
+    this.buffer = new Float32Array(this.chunkSize);
+    this.offset = 0;
   }
 
   process(inputs) {
-    const input = inputs[0];
-    if (!input || !input[0]) return true;
-
-    const samples = input[0];
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      this._buffer.push(s < 0 ? s * 0x8000 : s * 0x7fff);
+    const input = inputs[0]?.[0];
+    if (!input) {
+      return true;
     }
 
-    if (this._buffer.length >= this._bufferSize) {
-      const pcm16 = new Int16Array(this._buffer.splice(0, this._bufferSize));
-      const bytes = new Uint8Array(pcm16.buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    let cursor = 0;
+    while (cursor < input.length) {
+      const remaining = this.chunkSize - this.offset;
+      const amount = Math.min(remaining, input.length - cursor);
+      this.buffer.set(input.subarray(cursor, cursor + amount), this.offset);
+      this.offset += amount;
+      cursor += amount;
+
+      if (this.offset >= this.chunkSize) {
+        this.port.postMessage(this.buffer.slice(0));
+        this.offset = 0;
       }
-      this.port.postMessage({ base64: btoa(binary) });
     }
 
     return true;
   }
 }
 
-registerProcessor("pcm-recorder", PcmRecorderProcessor);
+registerProcessor('pcm-recorder-processor', PcmRecorderProcessor);

@@ -165,21 +165,40 @@ export function CompanionWidget() {
         }
       }, CAPTURE_INTERVAL_MS);
 
-      // Start mic capture
+      // Start mic capture — BrowserBud pattern
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1 },
       });
-      const micCtx = new AudioContext({ sampleRate: 16000 });
+      const micCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({ sampleRate: 16000 });
+      void micCtx.resume().catch(() => {});
       await micCtx.audioWorklet.addModule("/pcm-recorder-worklet.js");
       const source = micCtx.createMediaStreamSource(micStream);
-      const worklet = new AudioWorkletNode(micCtx, "pcm-recorder");
-      worklet.port.onmessage = (e) => {
-        if (e.data?.base64) {
-          session.sendAudio(e.data.base64);
+      const processor = new AudioWorkletNode(micCtx, "pcm-recorder-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 1,
+        processorOptions: { chunkSize: 2048 },
+      });
+      const sink = micCtx.createGain();
+      sink.gain.value = 0;
+      source.connect(processor);
+      processor.connect(sink);
+      sink.connect(micCtx.destination);
+      processor.port.onmessage = (event) => {
+        const inputData = event.data;
+        if (!(inputData instanceof Float32Array)) return;
+        const pcm16 = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
         }
+        const uint8Array = new Uint8Array(pcm16.buffer);
+        let binary = "";
+        for (let i = 0; i < uint8Array.byteLength; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
+        }
+        session.sendAudio(btoa(binary));
       };
-      source.connect(worklet);
-      worklet.connect(micCtx.destination);
 
       // Duration timer
       const startTime = Date.now();

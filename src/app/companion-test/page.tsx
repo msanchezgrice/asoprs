@@ -101,30 +101,58 @@ export default function CompanionTestPage() {
         });
         log("Mic access granted. Tracks: " + micStream.getTracks().length);
 
-        // Set up audio worklet
-        const micCtx = new AudioContext({ sampleRate: 16000 });
+        // Set up audio worklet — exact BrowserBud pattern
+        const micCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({ sampleRate: 16000 });
+        log("AudioContext state: " + micCtx.state + ", sampleRate: " + micCtx.sampleRate);
+        void micCtx.resume().catch(() => {});
         await micCtx.audioWorklet.addModule("/pcm-recorder-worklet.js");
-        log("AudioWorklet loaded.");
+        log("AudioWorklet loaded (pcm-recorder-processor).");
 
         const source = micCtx.createMediaStreamSource(micStream);
-        const worklet = new AudioWorkletNode(micCtx, "pcm-recorder");
+        const processor = new AudioWorkletNode(micCtx, "pcm-recorder-processor", {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+          channelCount: 1,
+          processorOptions: { chunkSize: 2048 },
+        });
+        const sink = micCtx.createGain();
+        sink.gain.value = 0;
+
+        source.connect(processor);
+        processor.connect(sink);
+        sink.connect(micCtx.destination);
 
         let chunkCount = 0;
-        worklet.port.onmessage = (e) => {
-          if (e.data?.base64) {
-            chunkCount++;
-            session.sendRealtimeInput({
-              audio: { data: e.data.base64, mimeType: "audio/pcm;rate=16000" },
-            });
-            if (chunkCount % 20 === 0) {
-              log("Sent " + chunkCount + " audio chunks to Gemini");
-            }
+        processor.port.onmessage = (event) => {
+          const inputData = event.data;
+          if (!(inputData instanceof Float32Array)) {
+            log("Worklet sent non-Float32Array: " + typeof inputData);
+            return;
+          }
+
+          // Convert Float32 to PCM16 then base64 (BrowserBud pattern)
+          const pcm16 = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
+          }
+          const uint8Array = new Uint8Array(pcm16.buffer);
+          let binary = "";
+          for (let i = 0; i < uint8Array.byteLength; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+          const base64 = btoa(binary);
+
+          chunkCount++;
+          session.sendRealtimeInput({
+            audio: { data: base64, mimeType: "audio/pcm;rate=16000" },
+          });
+          if (chunkCount <= 3 || chunkCount % 20 === 0) {
+            log("Audio chunk #" + chunkCount + " sent (" + base64.length + " chars)");
           }
         };
 
-        source.connect(worklet);
-        worklet.connect(micCtx.destination);
-        log("Mic pipeline connected. Speak now!");
+        log("Mic pipeline connected (BrowserBud pattern). Speak now!");
         setStatus("listening");
       } catch (micErr) {
         log("Mic error: " + String(micErr));
