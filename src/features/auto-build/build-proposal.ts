@@ -68,7 +68,15 @@ Return ONLY valid JSON, no markdown fencing.`,
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "{}";
-  return JSON.parse(text);
+  const raw = JSON.parse(text);
+  return {
+    problem: typeof raw.problem === 'string' ? raw.problem : 'Unknown problem',
+    solution: typeof raw.solution === 'string' ? raw.solution : 'No solution provided',
+    acceptance_criteria: Array.isArray(raw.acceptance_criteria) ? raw.acceptance_criteria.filter((s: unknown) => typeof s === 'string') : [],
+    files_to_modify: Array.isArray(raw.files_to_modify) ? raw.files_to_modify.filter((s: unknown) => typeof s === 'string') : [],
+    test_requirements: Array.isArray(raw.test_requirements) ? raw.test_requirements.filter((s: unknown) => typeof s === 'string') : [],
+    rollback_plan: typeof raw.rollback_plan === 'string' ? raw.rollback_plan : 'Revert the commit',
+  };
 }
 
 export async function executeBuildPlan(

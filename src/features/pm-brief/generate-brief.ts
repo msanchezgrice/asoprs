@@ -141,13 +141,21 @@ Return ONLY valid JSON, no markdown fencing.`;
   let parsed: PMBriefResult;
   try {
     const briefData = JSON.parse(responseText);
+    // Validate required fields exist and have correct types
+    const validatedProposals = Array.isArray(briefData.proposals)
+      ? briefData.proposals.filter((p: unknown) => {
+          if (!p || typeof p !== 'object') return false;
+          const obj = p as Record<string, unknown>;
+          return typeof obj.title === 'string' && typeof obj.description === 'string';
+        }).slice(0, 5)
+      : [];
+
     parsed = {
-      ...briefData,
-      raw_data: {
-        feedback_count: feedbackCount,
-        session_count: sessionCount,
-        total_turns: turns.length,
-      },
+      summary: typeof briefData.summary === 'string' ? briefData.summary : 'Brief generated',
+      top_friction_points: Array.isArray(briefData.top_friction_points) ? briefData.top_friction_points.filter((s: unknown) => typeof s === 'string') : [],
+      unused_features: Array.isArray(briefData.unused_features) ? briefData.unused_features.filter((s: unknown) => typeof s === 'string') : [],
+      proposals: validatedProposals,
+      raw_data: { feedback_count: feedbackCount, session_count: sessionCount, total_turns: turns.length },
     };
   } catch {
     parsed = {

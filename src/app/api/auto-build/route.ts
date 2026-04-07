@@ -42,6 +42,19 @@ export async function POST(req: NextRequest) {
     const tier = change.feature_context?.tier ?? "code";
     const result = await executeBuildPlan(change_id, prd, tier);
 
+    // Check if already triggered (dedup)
+    const existingContext = change.feature_context as Record<string, unknown> | null;
+    if (existingContext?.build_status === 'triggered' && existingContext?.github_issue_url) {
+      return NextResponse.json({
+        change_id,
+        prd,
+        build_result: result,
+        github_issue_url: existingContext.github_issue_url as string,
+        github_issue_number: existingContext.github_issue_number as number,
+        already_triggered: true,
+      });
+    }
+
     let github_issue_url: string | null = null;
     let github_issue_number: number | null = null;
 
