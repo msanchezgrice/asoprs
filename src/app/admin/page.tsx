@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
 interface Proposal {
@@ -85,6 +85,8 @@ export default function AdminPage() {
     setActionLoading(null);
   };
 
+  const [buildStatus, setBuildStatus] = useState<Record<string, { url: string; number: number } | null>>({});
+
   const triggerBuild = async (changeId: string) => {
     setActionLoading(`build-${changeId}`);
     try {
@@ -94,8 +96,16 @@ export default function AdminPage() {
         body: JSON.stringify({ change_id: changeId }),
       });
       const data = await res.json();
-      if (data.prd) {
-        alert(`PRD generated! Build plan ready.\n\nProblem: ${data.prd.problem}\nFiles: ${data.prd.files_to_modify?.join(", ")}`);
+      if (data.github_issue_url) {
+        setBuildStatus((prev) => ({
+          ...prev,
+          [changeId]: { url: data.github_issue_url, number: data.github_issue_number },
+        }));
+      } else if (data.prd) {
+        setBuildStatus((prev) => ({
+          ...prev,
+          [changeId]: null,
+        }));
       }
       await fetchBriefs();
     } catch { /* silent */ }
@@ -226,20 +236,59 @@ export default function AdminPage() {
                       {proposal.status === "approved" && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
-                          <button
-                            onClick={() => {
-                              // Find the shipped_change for this proposal by querying
-                              fetch("/api/auto-build").then(r => r.json()).then((changes: Array<{id: string; title: string; feature_context: Record<string, unknown> | null}>) => {
-                                const match = changes.find((c: {title: string}) => c.title === proposal.title);
-                                if (match) triggerBuild(match.id);
-                              });
-                            }}
-                            disabled={actionLoading?.startsWith("build")}
-                            className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
-                          >
-                            {actionLoading?.startsWith("build") ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
-                            Build
-                          </button>
+                          {(() => {
+                            // Check for build status from feature_context or local state
+                            const localStatus = Object.values(buildStatus).find(Boolean);
+                            const featureBuildStatus = (proposal as Proposal & { feature_context?: { build_status?: string; github_issue_url?: string } }).feature_context?.build_status;
+                            const issueUrl = (proposal as Proposal & { feature_context?: { github_issue_url?: string } }).feature_context?.github_issue_url;
+
+                            if (featureBuildStatus === "triggered" || localStatus) {
+                              const url = issueUrl || localStatus?.url;
+                              return (
+                                <a
+                                  href={url ?? "#"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs text-amber-600 font-medium hover:underline"
+                                >
+                                  <Loader2 size={10} className="animate-spin" />
+                                  Building...
+                                  <ExternalLink size={10} />
+                                </a>
+                              );
+                            }
+
+                            if (featureBuildStatus === "pr_created") {
+                              return (
+                                <a
+                                  href={issueUrl ?? "#"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
+                                >
+                                  <FileText size={10} />
+                                  View PR
+                                  <ExternalLink size={10} />
+                                </a>
+                              );
+                            }
+
+                            return (
+                              <button
+                                onClick={() => {
+                                  fetch("/api/auto-build").then(r => r.json()).then((changes: Array<{id: string; title: string; feature_context: Record<string, unknown> | null}>) => {
+                                    const match = changes.find((c: {title: string}) => c.title === proposal.title);
+                                    if (match) triggerBuild(match.id);
+                                  });
+                                }}
+                                disabled={actionLoading?.startsWith("build")}
+                                className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
+                              >
+                                {actionLoading?.startsWith("build") ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
+                                Build
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                       {proposal.status === "rejected" && (

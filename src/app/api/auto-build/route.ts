@@ -42,10 +42,61 @@ export async function POST(req: NextRequest) {
     const tier = change.feature_context?.tier ?? "code";
     const result = await executeBuildPlan(change_id, prd, tier);
 
+    let github_issue_url: string | null = null;
+    let github_issue_number: number | null = null;
+
+    // Step 3: For code-tier changes, create GitHub Issue to trigger auto-build
+    if (result.success && tier === "code" && process.env.GITHUB_TOKEN) {
+      try {
+        const issueRes = await fetch(
+          "https://api.github.com/repos/msanchezgrice/asoprs/issues",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              "Content-Type": "application/json",
+              Accept: "application/vnd.github+json",
+            },
+            body: JSON.stringify({
+              title: change.title,
+              body: result.result,
+              labels: ["auto-build"],
+            }),
+          }
+        );
+
+        if (issueRes.ok) {
+          const issue = await issueRes.json();
+          github_issue_url = issue.html_url;
+          github_issue_number = issue.number;
+
+          // Update shipped_changes with issue URL and build status
+          await db
+            .from("shipped_changes")
+            .update({
+              feature_context: {
+                ...change.feature_context,
+                prd,
+                build_status: "triggered",
+                github_issue_url: issue.html_url,
+                github_issue_number: issue.number,
+                triggered_at: new Date().toISOString(),
+              },
+            })
+            .eq("id", change_id);
+        }
+      } catch (ghErr) {
+        // GitHub issue creation is non-critical; log but don't fail the request
+        console.error("Failed to create GitHub issue:", ghErr);
+      }
+    }
+
     return NextResponse.json({
       change_id,
       prd,
       build_result: result,
+      github_issue_url,
+      github_issue_number,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
