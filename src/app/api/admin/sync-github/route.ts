@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase";
+import { getDailyImprovementCount, getAutonomousConfig } from "@/features/auto-build/daily-cap";
+import { runApprovalAgent, type ApprovalConfig } from "@/features/auto-build/approval-agent";
 
 interface FeatureContext {
   build_status?: string;
@@ -51,14 +53,21 @@ async function withConcurrency<T>(
   await Promise.all(workers);
 }
 
-export async function POST() {
-  // Auth check
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function POST(req: NextRequest) {
+  // Auth check: cron secret OR authenticated user
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    // Cron-authenticated, proceed
+  } else {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const githubToken = process.env.GITHUB_TOKEN;
@@ -189,9 +198,73 @@ export async function POST() {
     }
   });
 
+  // --- Auto-run approval agent on PRs ---
+  let agentRuns = 0;
+  let dailyCap: { count: number; limit: number; remaining: number } | null = null;
+
+  try {
+    const autoConfig = await getAutonomousConfig();
+    dailyCap = await getDailyImprovementCount();
+
+    if (autoConfig.auto_run_approval_agent && dailyCap.remaining > 0) {
+      // Find changes with pr_created status that haven't been reviewed yet
+      const prChanges = (changes ?? []).filter((c) => {
+        const fc = c.feature_context as FeatureContext | null;
+        return fc?.build_status === "pr_created" && fc?.pr_number && !fc?.approval_result;
+      });
+
+      // Load full approval config for the agent
+      const { data: settingsRow } = await db
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "approval_config")
+        .single();
+
+      const approvalCfg = (settingsRow?.value ?? {}) as ApprovalConfig;
+
+      for (const change of prChanges) {
+        if (dailyCap.remaining <= 0) break;
+
+        const fc = change.feature_context as FeatureContext;
+        const prNumber = fc.pr_number!;
+
+        try {
+          const result = await runApprovalAgent(prNumber, approvalCfg);
+
+          // Store approval result in feature_context
+          await db.from("shipped_changes").update({
+            feature_context: {
+              ...fc,
+              approval_result: {
+                decision: result.decision,
+                risk_score: result.risk_score,
+                confidence: result.confidence,
+                auto_merged: result.auto_merged,
+                reviewed_at: new Date().toISOString(),
+              },
+              build_status: result.auto_merged ? "completed" : fc.build_status,
+              ...(result.auto_merged ? { completed_at: new Date().toISOString() } : {}),
+            },
+          }).eq("id", change.id);
+
+          agentRuns++;
+          if (result.auto_merged) {
+            dailyCap.remaining--;
+          }
+        } catch (agentErr) {
+          console.error(`Approval agent failed for PR #${prNumber}:`, agentErr);
+        }
+      }
+    }
+  } catch (autoErr) {
+    console.error("Auto-approval agent pipeline error:", autoErr);
+  }
+
   return NextResponse.json({
     synced: triggeredChanges.length,
     updated: updated.length,
     items: updated,
+    agent_runs: agentRuns,
+    daily_cap: dailyCap,
   });
 }

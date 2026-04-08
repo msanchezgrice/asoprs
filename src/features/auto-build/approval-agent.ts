@@ -398,10 +398,24 @@ export async function runApprovalAgent(
     body: JSON.stringify({ body: comment }),
   });
 
-  // 9. Auto-merge if approved and mode allows
-  const shouldMerge =
+  // 9. Auto-merge if approved and mode allows (with daily cap check)
+  let shouldMerge =
     result.decision === "approve" &&
     (config.mode === "auto_low_risk" || config.mode === "auto_all");
+
+  if (shouldMerge) {
+    // Check daily cap before merging (dynamic import to avoid eager Supabase init)
+    try {
+      const { getDailyImprovementCount } = await import("./daily-cap");
+      const dailyCap = await getDailyImprovementCount();
+      if (dailyCap.remaining <= 0) {
+        shouldMerge = false;
+        console.log(`Daily improvement cap reached (${dailyCap.count}/${dailyCap.limit}), skipping auto-merge for PR #${prNumber}`);
+      }
+    } catch {
+      // If daily cap check fails, proceed with merge
+    }
+  }
 
   if (shouldMerge) {
     const mergeRes = await fetch(
