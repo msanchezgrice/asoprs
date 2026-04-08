@@ -216,7 +216,7 @@ export function PdfReader({
                       <button
                         key={`${highlight.id}-${rectIndex}`}
                         type="button"
-                        className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? "pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50" : ""}`}
+                        className={`group absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? "pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50" : ""}`}
                         style={{
                           left: `${rect.x * 100}%`,
                           top: `${rect.y * 100}%`,
@@ -237,7 +237,16 @@ export function PdfReader({
 
                           void onDeleteHighlight(highlight.id);
                         }}
-                      />
+                      >
+                        {onDeleteHighlight && !highlightMode && rectIndex === 0 && (
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute right-0 top-0 hidden rounded-bl-sm rounded-tr-[2px] bg-coral px-1 text-[8px] font-bold leading-4 text-white group-hover:block"
+                          >
+                            ×
+                          </span>
+                        )}
+                      </button>
                     ))
                   )}
                 </div>
