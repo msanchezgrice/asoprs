@@ -314,4 +314,122 @@ describe("PdfReader", () => {
     fireEvent.click(deleteButtons[1]);
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-multi");
   });
+
+  test("removes highlights with overlapping rects individually", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-overlap-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Overlapping highlight one",
+        rects: [
+          { x: 0.1, y: 0.2, width: 0.4, height: 0.03 },
+          { x: 0.1, y: 0.23, width: 0.35, height: 0.03 },
+        ],
+      },
+      {
+        id: "hl-overlap-2",
+        page_number: 1,
+        color: "#4CAF50",
+        text_content: "Overlapping highlight two",
+        rects: [{ x: 0.15, y: 0.21, width: 0.3, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    // hl-overlap-1 has 2 rects rendered; click any of them
+    const overlapButtons = await screen.findAllByRole("button", {
+      name: /remove highlight: overlapping highlight one/i,
+    });
+
+    expect(overlapButtons).toHaveLength(2);
+    fireEvent.click(overlapButtons[0]);
+
+    expect(onDeleteHighlight).toHaveBeenCalledOnce();
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-overlap-1");
+  });
+
+  test("renders highlights across multiple pages and deletes from the correct page", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    // Page 2 highlight should not be rendered when numPages mock reports 1;
+    // page 1 highlight should be the only one visible
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-page1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Page one highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+      {
+        id: "hl-page2",
+        page_number: 2,
+        color: "#2196F3",
+        text_content: "Page two highlight",
+        rects: [{ x: 0.2, y: 0.3, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    // Only page 1 renders (mock reports numPages=1); page 2 highlight not visible
+    const page1Button = await screen.findByRole("button", {
+      name: /remove highlight: page one highlight/i,
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /remove highlight: page two highlight/i })
+    ).toBeNull();
+
+    fireEvent.click(page1Button);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-page1");
+  });
+
+  test("shows fallback label for highlights without text content", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-no-text",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: null,
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const deleteButton = await screen.findByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.click(deleteButton);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-no-text");
+  });
 });
