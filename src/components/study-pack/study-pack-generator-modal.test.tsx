@@ -103,6 +103,90 @@ describe("StudyPackGeneratorModal", () => {
     expect(screen.getByLabelText(/orbital hemorrhage/i)).not.toBeChecked();
   });
 
+  test("shows Save to Library button in preview when onSave is provided and pack is not saved", () => {
+    const onSave = vi.fn();
+
+    render(
+      <StudyPackGeneratorModal
+        open
+        documents={documents}
+        onClose={vi.fn()}
+        onGenerate={vi.fn()}
+        generating={false}
+        preview={{
+          pack: {
+            title: "ASOPRS Study Pack - Test",
+            contentMode: "mcq",
+            sections: [{ title: "17 Cicatricial Entropion", mcqs: [], flashcards: [] }],
+          },
+          text: "Sample text",
+          saved: false,
+        }}
+        onSave={onSave}
+        saving={false}
+      />
+    );
+
+    const saveButton = screen.getByRole("button", { name: /save to library/i });
+    expect(saveButton).toBeInTheDocument();
+    expect(saveButton).toBeEnabled();
+
+    fireEvent.click(saveButton);
+    expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  test("shows saving state and disables button while saving", () => {
+    render(
+      <StudyPackGeneratorModal
+        open
+        documents={documents}
+        onClose={vi.fn()}
+        onGenerate={vi.fn()}
+        generating={false}
+        preview={{
+          pack: {
+            title: "ASOPRS Study Pack - Test",
+            contentMode: "mcq",
+            sections: [{ title: "17 Cicatricial Entropion", mcqs: [], flashcards: [] }],
+          },
+          text: "Sample text",
+          saved: false,
+        }}
+        onSave={vi.fn()}
+        saving={true}
+      />
+    );
+
+    const saveButton = screen.getByRole("button", { name: /saving/i });
+    expect(saveButton).toBeDisabled();
+  });
+
+  test("shows Saved to Library indicator when preview is already saved", () => {
+    render(
+      <StudyPackGeneratorModal
+        open
+        documents={documents}
+        onClose={vi.fn()}
+        onGenerate={vi.fn()}
+        generating={false}
+        preview={{
+          pack: {
+            title: "ASOPRS Study Pack - Test",
+            contentMode: "mcq",
+            sections: [{ title: "17 Cicatricial Entropion", mcqs: [], flashcards: [] }],
+          },
+          text: "Sample text",
+          saved: true,
+        }}
+        onSave={vi.fn()}
+        saving={false}
+      />
+    );
+
+    expect(screen.getByText(/saved to library/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /save to library/i })).not.toBeInTheDocument();
+  });
+
   test("updates the auto prompt when content mode and counts change", () => {
     render(
       <StudyPackGeneratorModal

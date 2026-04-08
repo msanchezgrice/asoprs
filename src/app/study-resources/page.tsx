@@ -48,7 +48,11 @@ export default function StudyResourcesPage() {
   const [studyPackPreview, setStudyPackPreview] = useState<{
     pack: StudyPack;
     text: string;
+    saved?: boolean;
   } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingSaveRequest, setPendingSaveRequest] =
+    useState<StudyPackRequest | null>(null);
   const [selectedSavedPreview, setSelectedSavedPreview] = useState<{
     id: string;
     pack: StudyPack;
@@ -138,8 +142,17 @@ export default function StudyResourcesPage() {
           saved?: boolean;
           saveError?: string | null;
         };
-        setStudyPackPreview(payload);
+        setStudyPackPreview({
+          pack: payload.pack,
+          text: payload.text,
+          saved: payload.saved,
+        });
         setSelectedSavedPreview(null);
+        if (!payload.saved) {
+          setPendingSaveRequest(request);
+        } else {
+          setPendingSaveRequest(null);
+        }
         if (user && payload.saved === false && payload.saveError) {
           setStudyPackError(
             `${payload.saveError} The study pack generated, but it was not saved.`
@@ -180,6 +193,40 @@ export default function StudyResourcesPage() {
       );
     } finally {
       setStudyPackGenerating(false);
+    }
+  }
+
+  async function handleSavePack() {
+    if (!pendingSaveRequest || !studyPackPreview) return;
+    setSaving(true);
+    setStudyPackError(null);
+    try {
+      const response = await fetch("/api/study-packs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pack: studyPackPreview.pack,
+          text: studyPackPreview.text,
+          outputFormat: pendingSaveRequest.outputFormat,
+          selectedDocumentIds: pendingSaveRequest.selectedDocumentIds,
+          instructions: pendingSaveRequest.instructions,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response
+          .json()
+          .catch(() => ({ error: "Failed to save study pack." }));
+        throw new Error(payload.error || "Failed to save study pack.");
+      }
+      setStudyPackPreview((prev) => (prev ? { ...prev, saved: true } : prev));
+      setPendingSaveRequest(null);
+      await refreshResources();
+    } catch (error) {
+      setStudyPackError(
+        error instanceof Error ? error.message : "Failed to save study pack."
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -354,7 +401,12 @@ export default function StudyResourcesPage() {
           setStudyPackError(null);
         }}
         onGenerate={handleStudyPackGenerate}
-        onClearPreview={() => setStudyPackPreview(null)}
+        onClearPreview={() => {
+          setStudyPackPreview(null);
+          setPendingSaveRequest(null);
+        }}
+        onSave={user && pendingSaveRequest ? handleSavePack : undefined}
+        saving={saving}
       />
     </div>
   );
