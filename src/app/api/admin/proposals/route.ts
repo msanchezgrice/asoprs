@@ -57,7 +57,13 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (action === "approve") {
-    // Create a shipped change
+    // Create a shipped change with build_status: pending_prd (Phase 1)
+    const initialFeatureContext = {
+      ...(feature_context ?? {}),
+      build_status: "pending_prd",
+      delivery_strategy: proposal.delivery_strategy ?? null,
+    };
+
     const { data: change, error: changeError } = await db
       .from("shipped_changes")
       .insert({
@@ -71,7 +77,7 @@ export async function PATCH(req: NextRequest) {
           delivery_strategy: proposal.delivery_strategy ?? null,
           target_user_id: proposal.target_user_id ?? null,
         },
-        feature_context: feature_context ?? null,
+        feature_context: initialFeatureContext,
         status: "active",
       })
       .select()

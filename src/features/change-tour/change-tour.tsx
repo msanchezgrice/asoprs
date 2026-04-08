@@ -128,6 +128,7 @@ export function ChangeTour() {
         .from("shipped_changes")
         .select("*")
         .eq("status", "active")
+        .or("feature_context->>build_status.eq.completed,feature_context->>build_status.eq.config_applied")
         .order("shipped_at", { ascending: false })
         .limit(5);
 

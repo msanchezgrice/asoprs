@@ -43,3 +43,5 @@ supabase/.temp
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+.env*.local
+.claude/

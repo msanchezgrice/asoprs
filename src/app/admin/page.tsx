@@ -79,7 +79,7 @@ interface PMBrief {
   status: string;
 }
 
-type AdminTab = "briefs" | "in_progress" | "shipped";
+type AdminTab = "briefs" | "in_progress" | "shipped" | "archive";
 
 const ORIGIN_LABELS: Record<string, { label: string; color: string }> = {
   request: { label: "USER REQUEST", color: "text-indigo-400 bg-indigo-500/15" },
@@ -188,6 +188,7 @@ export default function AdminPage() {
   } | null>(null);
   const [briefDetailModal, setBriefDetailModal] = useState<PMBrief | null>(null);
   const [expandedPRDs, setExpandedPRDs] = useState<Set<number>>(new Set());
+  const [prdGenerating, setPrdGenerating] = useState<Set<string>>(new Set());
 
   const fetchBriefs = useCallback(async () => {
     setLoading(true);
@@ -228,12 +229,32 @@ export default function AdminPage() {
     const key = `${briefId}-${index}`;
     setActionLoading(key);
     try {
-      await fetch("/api/admin/proposals", {
+      const res = await fetch("/api/admin/proposals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brief_id: briefId, proposal_index: index, action }),
       });
+      const data = await res.json();
+
+      if (action === "approve" && data.change?.id) {
+        // Phase 1: Auto-trigger PRD generation
+        setPrdGenerating((prev) => new Set(prev).add(data.change.id));
+        try {
+          await fetch("/api/auto-build", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ change_id: data.change.id }),
+          });
+        } catch { /* silent */ }
+        setPrdGenerating((prev) => {
+          const next = new Set(prev);
+          next.delete(data.change.id);
+          return next;
+        });
+      }
+
       await fetchBriefs();
+      await fetchShippedChanges();
     } catch { /* silent */ }
     setActionLoading(null);
   };
@@ -295,17 +316,28 @@ export default function AdminPage() {
   // Tab 2 & 3 data
   const inProgressChanges = shippedChanges.filter((c) => {
     const status = c.feature_context?.build_status;
-    return status === "triggered" || status === "ready_for_build";
+    return status === "triggered" || status === "ready_for_build" || status === "pending_prd";
   });
   const completedChanges = shippedChanges.filter((c) => {
     const status = c.feature_context?.build_status;
     return status === "completed" || status === "config_applied" || status === "pr_created";
   });
 
+  // Collect all rejected proposals across all briefs for the Archive tab
+  const rejectedProposals: { brief: PMBrief; proposal: Proposal; index: number }[] = [];
+  briefs.forEach((brief) => {
+    (brief.action_items ?? []).forEach((p, i) => {
+      if (p.status === "rejected") {
+        rejectedProposals.push({ brief, proposal: p, index: i });
+      }
+    });
+  });
+
   const tabs: { key: AdminTab; label: string; count?: number }[] = [
     { key: "briefs", label: "Briefs", count: briefs.length },
     { key: "in_progress", label: "In Progress", count: inProgressChanges.length },
     { key: "shipped", label: "Shipped", count: completedChanges.length },
+    { key: "archive", label: "Archive", count: rejectedProposals.length },
   ];
 
   const togglePRD = (index: number) => {
@@ -346,10 +378,11 @@ export default function AdminPage() {
         <p className="text-sm text-navy mt-1">{brief.summary_json.summary}</p>
       </div>
 
-      {/* Proposals */}
-      {(brief.action_items ?? []).map((proposal, i) => {
-        const isActioned = proposal.status === "approved" || proposal.status === "rejected";
-        const loadingKey = `${brief.id}-${i}`;
+      {/* Proposals (hide rejected — those go to Archive tab) */}
+      {(brief.action_items ?? []).filter((p) => p.status !== "rejected").map((proposal, i) => {
+        const originalIndex = (brief.action_items ?? []).indexOf(proposal);
+        const isActioned = proposal.status === "approved";
+        const loadingKey = `${brief.id}-${originalIndex}`;
 
         return (
           <div key={i} className={`px-5 py-4 border-b border-ivory-dark last:border-b-0 ${isActioned ? "opacity-60" : ""}`}>
@@ -383,7 +416,7 @@ export default function AdminPage() {
               {!isActioned && (
                 <div className="flex gap-2 flex-shrink-0">
                   <button
-                    onClick={() => handleProposal(brief.id, i, "approve")}
+                    onClick={() => handleProposal(brief.id, originalIndex, "approve")}
                     disabled={actionLoading === loadingKey}
                     className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
                   >
@@ -391,7 +424,7 @@ export default function AdminPage() {
                     Approve
                   </button>
                   <button
-                    onClick={() => handleProposal(brief.id, i, "reject")}
+                    onClick={() => handleProposal(brief.id, originalIndex, "reject")}
                     disabled={actionLoading === loadingKey}
                     className="flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-50"
                   >
@@ -409,8 +442,22 @@ export default function AdminPage() {
                     const featureBuildStatus = proposal.feature_context?.build_status;
                     const issueUrl = proposal.feature_context?.github_issue_url;
 
-                    if (featureBuildStatus === "triggered" || localStatus) {
-                      const url = issueUrl || localStatus?.url;
+                    // Check if PRD is generating (pending_prd or in prdGenerating set)
+                    const matchChange = shippedChanges.find((c) => c.title === proposal.title);
+                    const changeBuildStatus = matchChange?.feature_context?.build_status;
+                    const isGenPrd = (matchChange && prdGenerating.has(matchChange.id)) || featureBuildStatus === "pending_prd" || changeBuildStatus === "pending_prd";
+
+                    if (isGenPrd) {
+                      return (
+                        <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
+                          <Loader2 size={10} className="animate-spin" />
+                          Generating proposal...
+                        </span>
+                      );
+                    }
+
+                    if (featureBuildStatus === "triggered" || changeBuildStatus === "triggered" || localStatus) {
+                      const url = issueUrl || matchChange?.feature_context?.github_issue_url as string | undefined || localStatus?.url;
                       return (
                         <a
                           href={url ?? "#"}
@@ -425,7 +472,7 @@ export default function AdminPage() {
                       );
                     }
 
-                    if (featureBuildStatus === "config_applied") {
+                    if (featureBuildStatus === "config_applied" || changeBuildStatus === "config_applied") {
                       return (
                         <span className="flex items-center gap-1 text-xs text-sky-600 font-medium">
                           <CheckCircle2 size={10} />
@@ -434,10 +481,10 @@ export default function AdminPage() {
                       );
                     }
 
-                    if (featureBuildStatus === "pr_created") {
+                    if (featureBuildStatus === "pr_created" || changeBuildStatus === "pr_created") {
                       return (
                         <a
-                          href={issueUrl ?? "#"}
+                          href={(issueUrl || matchChange?.feature_context?.pr_url as string | undefined) ?? "#"}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
@@ -449,13 +496,47 @@ export default function AdminPage() {
                       );
                     }
 
-                    const buildKey = `build-${brief.id}-${i}`;
+                    if (featureBuildStatus === "completed" || changeBuildStatus === "completed") {
+                      return (
+                        <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                          <CheckCircle2 size={10} />
+                          Shipped
+                        </span>
+                      );
+                    }
+
+                    // prd_ready: show Build button
+                    if (featureBuildStatus === "prd_ready" || changeBuildStatus === "prd_ready") {
+                      const buildKey = `build-${brief.id}-${originalIndex}`;
+                      return (
+                        <button
+                          onClick={() => {
+                            if (matchChange) {
+                              triggerBuild(matchChange.id, brief.id, originalIndex);
+                            } else {
+                              fetch("/api/auto-build").then(r => r.json()).then((changes: Array<BuildChange>) => {
+                                const match = changes.find((c) => c.title === proposal.title);
+                                if (match) triggerBuild(match.id, brief.id, originalIndex);
+                              });
+                            }
+                          }}
+                          disabled={actionLoading === buildKey}
+                          className="flex items-center gap-1 bg-navy text-white px-2 py-1 rounded text-xs font-medium hover:bg-navy/80 disabled:opacity-50"
+                        >
+                          {actionLoading === buildKey ? <Loader2 size={10} className="animate-spin" /> : <Hammer size={10} />}
+                          Build
+                        </button>
+                      );
+                    }
+
+                    // Default: show Build button (legacy proposals without build_status)
+                    const buildKey = `build-${brief.id}-${originalIndex}`;
                     return (
                       <button
                         onClick={() => {
                           fetch("/api/auto-build").then(r => r.json()).then((changes: Array<BuildChange>) => {
                             const match = changes.find((c) => c.title === proposal.title);
-                            if (match) triggerBuild(match.id, brief.id, i);
+                            if (match) triggerBuild(match.id, brief.id, originalIndex);
                           });
                         }}
                         disabled={actionLoading === buildKey}
@@ -467,9 +548,6 @@ export default function AdminPage() {
                     );
                   })()}
                 </div>
-              )}
-              {proposal.status === "rejected" && (
-                <span className="text-xs text-red-500 font-medium flex items-center gap-1"><XCircle size={12} /> Rejected</span>
               )}
             </div>
           </div>
@@ -713,6 +791,51 @@ export default function AdminPage() {
             )}
           </>
         )}
+
+        {/* Tab 4: Archive (rejected proposals) */}
+        {activeTab === "archive" && (
+          <>
+            {rejectedProposals.length === 0 ? (
+              <div className="text-center py-12 text-warm-gray">
+                <XCircle size={24} className="mx-auto mb-2 text-warm-gray/50" />
+                <p className="text-lg font-medium">No rejected proposals</p>
+                <p className="text-sm mt-1">Rejected proposals will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rejectedProposals.map(({ brief, proposal, index }) => (
+                  <div key={`${brief.id}-${index}`} className="bg-white rounded-xl border border-ivory-dark p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded text-red-600 bg-red-100">REJECTED</span>
+                          <BadgeRow proposal={proposal} showTarget={false} />
+                        </div>
+                        <h3 className="text-sm font-semibold text-navy">{proposal.title}</h3>
+                        <p className="text-xs text-warm-gray mt-0.5">{proposal.description}</p>
+                        {proposal.evidence && (
+                          <div className="mt-2 bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
+                            <span className="text-[10px] text-warm-gray block mb-0.5">EVIDENCE:</span>
+                            <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                          </div>
+                        )}
+                        {proposal.reject_reason && (
+                          <div className="mt-2 bg-red-50/50 rounded px-3 py-2 border-l-2 border-red-300">
+                            <span className="text-[10px] text-red-600 font-semibold block mb-0.5">REJECT REASON:</span>
+                            <span className="text-xs text-navy/80">{proposal.reject_reason}</span>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-warm-gray mt-2">
+                          From brief: {new Date(brief.generated_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Build Result Modal */}
@@ -812,6 +935,32 @@ export default function AdminPage() {
         const scope = SCOPE_BADGES[proposal.scope ?? "global"];
         const fc = change?.feature_context ?? proposal.feature_context;
         const prd = fc?.prd as PRDData | undefined;
+        const buildSt = fc?.build_status as string | undefined;
+        const changeId = change?.id;
+        const isGeneratingPrd = changeId ? prdGenerating.has(changeId) : false;
+
+        // Derive "Why this matters" from evidence and description
+        const whyMatters = proposal.evidence && proposal.description
+          ? `This directly affects the study experience: ${proposal.description.toLowerCase().replace(/\.$/, "")}. The evidence shows ${proposal.evidence.toLowerCase().replace(/\.$/, "")}, which impacts how effectively users can prepare.`
+          : proposal.description || "This improvement enhances the overall study experience.";
+
+        // Derive "How this was detected" from origin_type
+        const detectionMap: Record<string, string> = {
+          bug: "Our companion AI observed this issue during a study session.",
+          request: "A user directly asked for this improvement.",
+          pattern: "We noticed this from study behavior data and usage patterns.",
+          annoyance: "A user flagged this as frustrating during their study session.",
+        };
+        const howDetected = detectionMap[proposal.origin_type] ?? detectionMap.pattern;
+
+        // Delivery strategy explanations
+        const deliveryExplanations: Record<string, string> = {
+          global_fix: "This fix ships to all users.",
+          isolated_module: "This feature will be built as a personal module for one user.",
+          config_change: "This is a database configuration change, no code needed.",
+          content_weight: "This adjusts study content ordering for a specific user.",
+        };
+        const deliveryExplanation = proposal.delivery_strategy ? deliveryExplanations[proposal.delivery_strategy] : null;
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setDetailModal(null)}>
@@ -822,7 +971,7 @@ export default function AdminPage() {
                 <button onClick={() => setDetailModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
               </div>
               <div className="px-5 py-4 space-y-4">
-                {/* Badges */}
+                {/* Section 1: Context */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${origin.color}`}>{origin.label}</span>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${conf}`}>{proposal.confidence?.toUpperCase()}</span>
@@ -839,43 +988,59 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* Target user */}
                 {proposal.scope === "user" && proposal.target_user_id && (
                   <div className="text-xs text-sky-600 font-medium">Target user: {proposal.target_user_id}</div>
                 )}
 
-                {/* Title & description */}
                 <div>
-                  <h3 className="text-base font-semibold text-navy">{proposal.title}</h3>
+                  <h3 className="text-base font-bold text-navy">{proposal.title}</h3>
                   <p className="text-sm text-warm-gray mt-1">{proposal.description}</p>
                 </div>
 
-                {/* Evidence */}
-                <div className="bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
-                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-0.5">Evidence</span>
-                  <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                {/* Section 2: Evidence & Thinking */}
+                <div className="border-t border-ivory-dark pt-4 space-y-3">
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Evidence &amp; Thinking</span>
+
+                  {proposal.evidence && (
+                    <div className="bg-ivory/50 rounded px-3 py-2 border-l-2 border-navy/20">
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-0.5">Evidence</span>
+                      <span className="text-xs text-navy/80">{proposal.evidence}</span>
+                    </div>
+                  )}
+
+                  <div className="bg-indigo-50/50 rounded px-3 py-2 border-l-2 border-indigo-300">
+                    <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider block mb-0.5">Why this matters</span>
+                    <span className="text-xs text-navy/80">{whyMatters}</span>
+                  </div>
+
+                  <div className="bg-amber-50/50 rounded px-3 py-2 border-l-2 border-amber-300">
+                    <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider block mb-0.5">How this was detected</span>
+                    <span className="text-xs text-navy/80">{howDetected}</span>
+                  </div>
                 </div>
 
-                {/* PRD section (for approved+built proposals) */}
-                {prd && (
-                  <>
-                    <div className="border-t border-ivory-dark pt-4">
-                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">PRD</span>
-                    </div>
+                {/* Section 3: Proposed Solution (PRD) — only if approved and has PRD */}
+                {proposal.status === "approved" && prd && (
+                  <div className="border-t border-ivory-dark pt-4 space-y-3">
+                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Proposed Solution (PRD)</span>
+
                     <div>
-                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Problem</span>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Problem Statement</span>
                       <p className="text-sm text-navy mt-1">{prd.problem}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Solution</span>
+                      <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Solution Approach</span>
                       <p className="text-sm text-navy mt-1">{prd.solution}</p>
                     </div>
                     {prd.acceptance_criteria?.length > 0 && (
                       <div>
                         <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Acceptance Criteria</span>
-                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                        <ul className="mt-1 space-y-1">
                           {prd.acceptance_criteria.map((c, idx) => (
-                            <li key={idx} className="text-xs text-navy">{c}</li>
+                            <li key={idx} className="flex items-start gap-2 text-xs text-navy">
+                              <span className="text-warm-gray mt-0.5">&#9744;</span>
+                              <span>{c}</span>
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -883,11 +1048,11 @@ export default function AdminPage() {
                     {prd.files_to_modify?.length > 0 && (
                       <div>
                         <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Files to Modify</span>
-                        <ul className="mt-1 space-y-0.5">
+                        <div className="mt-1 space-y-0.5">
                           {prd.files_to_modify.map((f, idx) => (
-                            <li key={idx} className="text-xs text-navy font-mono bg-ivory/50 rounded px-2 py-1">{f}</li>
+                            <div key={idx} className="text-xs text-navy font-mono bg-ivory/50 rounded px-2 py-1">{f}</div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                     {prd.test_requirements?.length > 0 && (
@@ -904,36 +1069,99 @@ export default function AdminPage() {
                       <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Rollback Plan</span>
                       <p className="text-sm text-navy mt-1">{prd.rollback_plan}</p>
                     </div>
-                  </>
-                )}
-
-                {/* Build status & links */}
-                {fc && (
-                  <div className="border-t border-ivory-dark pt-4 space-y-2">
-                    <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Build Status</span>
-                    <div className="flex items-center gap-2">
-                      {fc.build_status === "config_applied" ? (
-                        <span className="text-xs font-medium text-sky-600 flex items-center gap-1"><CheckCircle2 size={12} /> Config applied — no code change needed</span>
-                      ) : fc.build_status === "pr_created" ? (
-                        <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> PR Created</span>
-                      ) : fc.build_status === "triggered" ? (
-                        <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Triggered</span>
-                      ) : (
-                        <span className="text-xs font-medium text-slate-500 flex items-center gap-1"><Clock size={12} /> {String(fc.build_status ?? "pending")}</span>
-                      )}
-                    </div>
-                    {fc.github_issue_url && (
-                      <a href={String(fc.github_issue_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-navy font-medium hover:underline">
-                        <FileText size={12} /> GitHub Issue #{String(fc.github_issue_number ?? "")} <ExternalLink size={10} />
-                      </a>
-                    )}
-                    {fc.pr_url && (
-                      <a href={String(fc.pr_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-navy font-medium hover:underline">
-                        <FileText size={12} /> Pull Request <ExternalLink size={10} />
-                      </a>
+                    {deliveryExplanation && (
+                      <div className="bg-sky-50/50 rounded px-3 py-2 border-l-2 border-sky-300">
+                        <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider block mb-0.5">Delivery Strategy</span>
+                        <span className="text-xs text-navy/80">{deliveryExplanation}</span>
+                      </div>
                     )}
                   </div>
                 )}
+
+                {/* Section 4: Status & Actions */}
+                <div className="border-t border-ivory-dark pt-4 space-y-3">
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Status &amp; Actions</span>
+
+                  <div className="flex items-center gap-2">
+                    {!proposal.status || proposal.status === "pending" ? (
+                      <span className="text-xs font-medium text-slate-500 flex items-center gap-1"><Clock size={12} /> Pending review</span>
+                    ) : proposal.status === "approved" && (buildSt === "completed" || buildSt === "config_applied") ? (
+                      <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> Shipped</span>
+                    ) : proposal.status === "approved" && buildSt === "triggered" ? (
+                      <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Building</span>
+                    ) : proposal.status === "approved" && buildSt === "prd_ready" ? (
+                      <span className="text-xs font-medium text-indigo-600 flex items-center gap-1"><FileText size={12} /> PRD Ready</span>
+                    ) : proposal.status === "approved" && (buildSt === "pending_prd" || isGeneratingPrd) ? (
+                      <span className="text-xs font-medium text-amber-600 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Generating coding proposal...</span>
+                    ) : proposal.status === "approved" ? (
+                      <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> Approved</span>
+                    ) : proposal.status === "rejected" ? (
+                      <span className="text-xs font-medium text-red-500 flex items-center gap-1"><XCircle size={12} /> Rejected</span>
+                    ) : (
+                      <span className="text-xs font-medium text-slate-500 flex items-center gap-1"><Clock size={12} /> {proposal.status}</span>
+                    )}
+                  </div>
+
+                  {/* Links */}
+                  {fc?.github_issue_url && buildSt === "triggered" && (
+                    <a href={String(fc.github_issue_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-navy font-medium hover:underline">
+                      <FileText size={12} /> GitHub Issue #{String(fc.github_issue_number ?? "")} <ExternalLink size={10} />
+                    </a>
+                  )}
+                  {fc?.pr_url && (buildSt === "completed" || buildSt === "config_applied") && (
+                    <a href={String(fc.pr_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-emerald-700 font-medium hover:underline">
+                      <FileText size={12} /> View PR <ExternalLink size={10} />
+                    </a>
+                  )}
+
+                  {/* Action buttons */}
+                  {(!proposal.status || proposal.status === "pending") && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setDetailModal(null);
+                          // Find which brief this proposal belongs to
+                          const brief = briefs.find((b) => (b.action_items ?? []).some((p) => p.title === proposal.title && p.description === proposal.description));
+                          if (brief) {
+                            const idx = (brief.action_items ?? []).findIndex((p) => p.title === proposal.title && p.description === proposal.description);
+                            if (idx >= 0) handleProposal(brief.id, idx, "approve");
+                          }
+                        }}
+                        className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-500"
+                      >
+                        <CheckCircle2 size={12} /> Approve
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDetailModal(null);
+                          const brief = briefs.find((b) => (b.action_items ?? []).some((p) => p.title === proposal.title && p.description === proposal.description));
+                          if (brief) {
+                            const idx = (brief.action_items ?? []).findIndex((p) => p.title === proposal.title && p.description === proposal.description);
+                            if (idx >= 0) handleProposal(brief.id, idx, "reject");
+                          }
+                        }}
+                        className="flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50"
+                      >
+                        <XCircle size={12} /> Reject
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Build button — only when PRD is ready */}
+                  {proposal.status === "approved" && buildSt === "prd_ready" && changeId && (
+                    <button
+                      onClick={() => {
+                        const brief = briefs.find((b) => (b.action_items ?? []).some((p) => p.title === proposal.title));
+                        const briefId = brief?.id ?? "";
+                        const idx = brief ? (brief.action_items ?? []).findIndex((p) => p.title === proposal.title) : 0;
+                        triggerBuild(changeId, briefId, idx);
+                      }}
+                      className="flex items-center gap-1 bg-navy text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-navy/80"
+                    >
+                      <Hammer size={12} /> Build
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="px-5 py-3 border-t border-ivory-dark">
                 <button onClick={() => setDetailModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
