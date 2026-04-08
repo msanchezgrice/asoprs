@@ -55,6 +55,7 @@ interface BuildChange {
     github_issue_url?: string;
     github_issue_number?: number;
     pr_url?: string;
+    pr_number?: number;
     prd?: PRDData;
     delivery_strategy?: string;
     triggered_at?: string;
@@ -189,6 +190,8 @@ export default function AdminPage() {
   const [briefDetailModal, setBriefDetailModal] = useState<PMBrief | null>(null);
   const [expandedPRDs, setExpandedPRDs] = useState<Set<number>>(new Set());
   const [prdGenerating, setPrdGenerating] = useState<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ updated: number } | null>(null);
 
   const fetchBriefs = useCallback(async () => {
     setLoading(true);
@@ -209,12 +212,31 @@ export default function AdminPage() {
     } catch { /* silent */ }
   }, []);
 
+  const syncGitHub = useCallback(async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-github", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setSyncResult({ updated: data.updated });
+        // Auto-hide after 3 seconds
+        setTimeout(() => setSyncResult(null), 3000);
+        // Refresh data after sync
+        await Promise.all([fetchBriefs(), fetchShippedChanges()]);
+      }
+    } catch { /* silent */ }
+    setSyncing(false);
+  }, [fetchBriefs, fetchShippedChanges]);
+
   useEffect(() => {
     if (user) {
       fetchBriefs();
       fetchShippedChanges();
+      // Auto-sync GitHub status on page load
+      syncGitHub();
     }
-  }, [user, fetchBriefs, fetchShippedChanges]);
+  }, [user, fetchBriefs, fetchShippedChanges, syncGitHub]);
 
   const generateBrief = async () => {
     setGenerating(true);
@@ -316,11 +338,11 @@ export default function AdminPage() {
   // Tab 2 & 3 data
   const inProgressChanges = shippedChanges.filter((c) => {
     const status = c.feature_context?.build_status;
-    return status === "triggered" || status === "ready_for_build" || status === "pending_prd";
+    return status === "triggered" || status === "ready_for_build" || status === "pending_prd" || status === "pr_created";
   });
   const completedChanges = shippedChanges.filter((c) => {
     const status = c.feature_context?.build_status;
-    return status === "completed" || status === "config_applied" || status === "pr_created";
+    return status === "completed" || status === "config_applied";
   });
 
   // Collect all rejected proposals across all briefs for the Archive tab
@@ -565,14 +587,29 @@ export default function AdminPage() {
             <h1 className="font-[DM_Serif_Display] text-xl text-navy">Admin Console</h1>
             <p className="text-xs text-warm-gray mt-0.5">PM Brief proposals and feedback</p>
           </div>
-          <button
-            onClick={generateBrief}
-            disabled={generating}
-            className="flex items-center gap-2 bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy/90 disabled:opacity-50"
-          >
-            {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Generate Brief
-          </button>
+          <div className="flex items-center gap-3">
+            {syncResult && (
+              <span className="text-xs text-emerald-600 font-medium animate-pulse">
+                Updated {syncResult.updated} item{syncResult.updated !== 1 ? "s" : ""}
+              </span>
+            )}
+            <button
+              onClick={syncGitHub}
+              disabled={syncing}
+              className="flex items-center gap-2 border border-navy/20 text-navy px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy/5 disabled:opacity-50"
+            >
+              {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {syncing ? "Syncing GitHub..." : "Sync GitHub"}
+            </button>
+            <button
+              onClick={generateBrief}
+              disabled={generating}
+              className="flex items-center gap-2 bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy/90 disabled:opacity-50"
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Generate Brief
+            </button>
+          </div>
         </div>
       </header>
 
@@ -685,24 +722,47 @@ export default function AdminPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
-                          {/* Building animation */}
-                          <div className="flex items-center gap-1.5">
-                            <div className="relative flex items-center justify-center w-6 h-6">
-                              <div className="absolute w-6 h-6 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
-                              <Hammer size={10} className="text-amber-500" />
-                            </div>
-                            <span className="text-xs text-amber-600 font-medium">Building...</span>
-                          </div>
-                          {change.feature_context?.github_issue_url && (
-                            <a
-                              href={String(change.feature_context.github_issue_url)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-navy font-medium hover:underline"
-                            >
-                              Issue #{String(change.feature_context.github_issue_number ?? "")}
-                              <ExternalLink size={10} />
-                            </a>
+                          {change.feature_context?.build_status === "pr_created" ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <FileText size={12} className="text-indigo-500" />
+                                <span className="text-xs text-indigo-600 font-medium">PR ready for review</span>
+                              </div>
+                              {change.feature_context?.pr_url && (
+                                <a
+                                  href={String(change.feature_context.pr_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 font-medium px-2.5 py-1 rounded-lg hover:bg-indigo-100"
+                                >
+                                  PR #{String(change.feature_context.pr_number ?? "")} &#8599;
+                                </a>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* Building animation */}
+                              <div className="flex items-center gap-1.5">
+                                <div className="relative flex items-center justify-center w-6 h-6">
+                                  <div className="absolute w-6 h-6 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                                  <Hammer size={10} className="text-amber-500" />
+                                </div>
+                                <span className="text-xs text-amber-600 font-medium">
+                                  Building...{change.feature_context?.github_issue_number ? ` Issue #${change.feature_context.github_issue_number}` : ""}
+                                </span>
+                              </div>
+                              {change.feature_context?.github_issue_url && (
+                                <a
+                                  href={String(change.feature_context.github_issue_url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs text-navy font-medium hover:underline"
+                                >
+                                  Issue #{String(change.feature_context.github_issue_number ?? "")}
+                                  <ExternalLink size={10} />
+                                </a>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -743,11 +803,6 @@ export default function AdminPage() {
                             {buildStatus === "config_applied" && (
                               <span className="text-xs text-sky-600 font-medium flex items-center gap-1">
                                 <CheckCircle2 size={10} /> Config applied
-                              </span>
-                            )}
-                            {buildStatus === "pr_created" && (
-                              <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                                <CheckCircle2 size={10} /> PR created
                               </span>
                             )}
                             {buildStatus === "completed" && (
