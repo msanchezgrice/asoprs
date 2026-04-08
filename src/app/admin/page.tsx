@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X, ChevronDown, ChevronRight, Settings, Shield, Trash2 } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
 
 type DeliveryStrategy = "global_fix" | "config_change" | "content_weight" | "isolated_module";
@@ -192,6 +192,36 @@ export default function AdminPage() {
   const [prdGenerating, setPrdGenerating] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ updated: number } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [approvalConfig, setApprovalConfig] = useState({
+    mode: "dry_run" as "dry_run" | "auto_low_risk" | "auto_all" | "disabled",
+    risk_threshold: 30,
+    auto_merge_enabled: false,
+    require_tests_pass: true,
+    require_new_tests: true,
+    max_files_changed: 10,
+    max_lines_changed: 500,
+    blocked_paths: ["src/app/api/auth/", "migrations/"],
+    model: "claude-opus-4-6",
+    notify_on_approve: true,
+    notify_on_escalate: true,
+  });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [newBlockedPath, setNewBlockedPath] = useState("");
+  const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
+  const [approvalResultModal, setApprovalResultModal] = useState<{
+    decision: string;
+    risk_score: number;
+    confidence: number;
+    reasoning: {
+      what_changed: string;
+      failure_modes: string[];
+      what_verified: string[];
+      confidence_gaps: string[];
+      blast_radius: string;
+    };
+    auto_merged: boolean;
+  } | null>(null);
 
   const fetchBriefs = useCallback(async () => {
     setLoading(true);
@@ -229,14 +259,57 @@ export default function AdminPage() {
     setSyncing(false);
   }, [fetchBriefs, fetchShippedChanges]);
 
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/settings");
+      if (res.ok) {
+        const rows = await res.json();
+        const row = (rows as Array<{ key: string; value: Record<string, unknown> }>).find((r) => r.key === "approval_config");
+        if (row?.value) {
+          setApprovalConfig((prev) => ({ ...prev, ...row.value }));
+        }
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  const saveSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "approval_config", value: approvalConfig }),
+      });
+    } catch { /* silent */ }
+    setSettingsSaving(false);
+  };
+
+  const runApprovalOnPR = async (prNumber: number, changeId: string) => {
+    setApprovalLoading(changeId);
+    try {
+      const res = await fetch("/api/admin/approve-pr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pr_number: prNumber }),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setApprovalResultModal(result);
+        await fetchShippedChanges();
+      }
+    } catch { /* silent */ }
+    setApprovalLoading(null);
+  };
+
   useEffect(() => {
     if (user) {
       fetchBriefs();
       fetchShippedChanges();
+      fetchSettings();
       // Auto-sync GitHub status on page load
       syncGitHub();
     }
-  }, [user, fetchBriefs, fetchShippedChanges, syncGitHub]);
+  }, [user, fetchBriefs, fetchShippedChanges, fetchSettings, syncGitHub]);
 
   const generateBrief = async () => {
     setGenerating(true);
@@ -594,6 +667,13 @@ export default function AdminPage() {
               </span>
             )}
             <button
+              onClick={() => { fetchSettings(); setSettingsOpen(true); }}
+              className="flex items-center gap-2 border border-navy/20 text-navy px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy/5"
+            >
+              <Settings size={14} />
+              Settings
+            </button>
+            <button
               onClick={syncGitHub}
               disabled={syncing}
               className="flex items-center gap-2 border border-navy/20 text-navy px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy/5 disabled:opacity-50"
@@ -728,6 +808,19 @@ export default function AdminPage() {
                                 <FileText size={12} className="text-indigo-500" />
                                 <span className="text-xs text-indigo-600 font-medium">PR ready for review</span>
                               </div>
+                              {change.feature_context?.pr_number && (
+                                <button
+                                  onClick={() => runApprovalOnPR(
+                                    change.feature_context!.pr_number as number,
+                                    change.id,
+                                  )}
+                                  disabled={approvalLoading === change.id}
+                                  className="flex items-center gap-1 text-xs bg-amber-50 text-amber-700 font-medium px-2.5 py-1 rounded-lg hover:bg-amber-100 disabled:opacity-50"
+                                >
+                                  {approvalLoading === change.id ? <Loader2 size={10} className="animate-spin" /> : <Shield size={10} />}
+                                  Run Approval Agent
+                                </button>
+                              )}
                               {change.feature_context?.pr_url && (
                                 <a
                                   href={String(change.feature_context.pr_url)}
@@ -1427,6 +1520,324 @@ export default function AdminPage() {
           </div>
         );
       })()}
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setSettingsOpen(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-ivory-dark">
+              <h2 className="font-[DM_Serif_Display] text-lg text-navy">Auto-Approval Configuration</h2>
+              <button onClick={() => setSettingsOpen(false)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-5">
+              {/* Mode */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Mode</span>
+                <div className="space-y-2">
+                  {([
+                    { value: "dry_run", label: "Dry Run", desc: "Review only: posts decision as PR comment, doesn't merge" },
+                    { value: "auto_low_risk", label: "Auto Low Risk", desc: "Auto-merge low-risk PRs (risk score below threshold)" },
+                    { value: "auto_all", label: "Auto All", desc: "Auto-merge everything (not recommended)" },
+                    { value: "disabled", label: "Disabled", desc: "Manual approval only" },
+                  ] as const).map((opt) => (
+                    <label key={opt.value} className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="approval_mode"
+                        checked={approvalConfig.mode === opt.value}
+                        onChange={() => setApprovalConfig((prev) => ({ ...prev, mode: opt.value }))}
+                        className="mt-1 accent-navy"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-navy group-hover:text-navy/80">{opt.label}</span>
+                        <p className="text-xs text-warm-gray">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Risk Threshold */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">
+                  Risk Threshold: {approvalConfig.risk_threshold}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={approvalConfig.risk_threshold}
+                  onChange={(e) => setApprovalConfig((prev) => ({ ...prev, risk_threshold: Number(e.target.value) }))}
+                  className="w-full accent-navy"
+                />
+                <div className="flex justify-between text-[10px] text-warm-gray mt-1">
+                  <span>0 = approve nothing</span>
+                  <span>100 = approve everything</span>
+                </div>
+              </div>
+
+              {/* Safety Guards */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Safety Guards</span>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.require_tests_pass}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, require_tests_pass: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Require all tests pass</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.require_new_tests}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, require_new_tests: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Require new tests for new code</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-navy">Max files changed:</label>
+                    <input
+                      type="number"
+                      value={approvalConfig.max_files_changed}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, max_files_changed: Number(e.target.value) }))}
+                      className="w-20 border border-ivory-dark rounded px-2 py-1 text-sm text-navy"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-navy">Max lines changed:</label>
+                    <input
+                      type="number"
+                      value={approvalConfig.max_lines_changed}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, max_lines_changed: Number(e.target.value) }))}
+                      className="w-20 border border-ivory-dark rounded px-2 py-1 text-sm text-navy"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Blocked Paths */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Blocked Paths (cannot auto-approve)</span>
+                <div className="space-y-1.5">
+                  {approvalConfig.blocked_paths.map((path, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-navy bg-ivory/50 rounded px-2 py-1 flex-1">{path}</span>
+                      <button
+                        onClick={() => setApprovalConfig((prev) => ({
+                          ...prev,
+                          blocked_paths: prev.blocked_paths.filter((_, i) => i !== idx),
+                        }))}
+                        className="text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newBlockedPath}
+                      onChange={(e) => setNewBlockedPath(e.target.value)}
+                      placeholder="Add path..."
+                      className="flex-1 border border-ivory-dark rounded px-2 py-1 text-xs font-mono text-navy"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newBlockedPath.trim()) {
+                          setApprovalConfig((prev) => ({
+                            ...prev,
+                            blocked_paths: [...prev.blocked_paths, newBlockedPath.trim()],
+                          }));
+                          setNewBlockedPath("");
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newBlockedPath.trim()) {
+                          setApprovalConfig((prev) => ({
+                            ...prev,
+                            blocked_paths: [...prev.blocked_paths, newBlockedPath.trim()],
+                          }));
+                          setNewBlockedPath("");
+                        }
+                      }}
+                      className="text-xs bg-navy/10 text-navy px-2 py-1 rounded hover:bg-navy/20"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Model */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Model</span>
+                <select
+                  value={approvalConfig.model}
+                  onChange={(e) => setApprovalConfig((prev) => ({ ...prev, model: e.target.value }))}
+                  className="border border-ivory-dark rounded px-3 py-1.5 text-sm text-navy w-full"
+                >
+                  <option value="claude-opus-4-6">claude-opus-4-6</option>
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                </select>
+              </div>
+
+              {/* Notifications */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Notifications</span>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.notify_on_approve}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, notify_on_approve: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Notify when auto-approved</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.notify_on_escalate}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, notify_on_escalate: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Notify when escalated to human</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-ivory-dark">
+              <button
+                onClick={async () => { await saveSettings(); setSettingsOpen(false); }}
+                disabled={settingsSaving}
+                className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {settingsSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Result Modal */}
+      {approvalResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setApprovalResultModal(null)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-ivory-dark">
+              <h2 className="font-[DM_Serif_Display] text-lg text-navy">Approval Agent Result</h2>
+              <button onClick={() => setApprovalResultModal(null)} className="text-warm-gray hover:text-navy"><X size={18} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Decision banner */}
+              <div className={`flex items-center gap-3 rounded-lg px-4 py-3 border ${
+                approvalResultModal.decision === "approve"
+                  ? "bg-emerald-50 border-emerald-200"
+                  : approvalResultModal.decision === "request_changes"
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-red-50 border-red-200"
+              }`}>
+                <Shield size={16} className={
+                  approvalResultModal.decision === "approve" ? "text-emerald-600"
+                    : approvalResultModal.decision === "request_changes" ? "text-amber-600"
+                      : "text-red-600"
+                } />
+                <div>
+                  <span className={`text-sm font-bold ${
+                    approvalResultModal.decision === "approve" ? "text-emerald-800"
+                      : approvalResultModal.decision === "request_changes" ? "text-amber-800"
+                        : "text-red-800"
+                  }`}>
+                    {approvalResultModal.decision === "approve" ? "APPROVED" : approvalResultModal.decision === "request_changes" ? "REQUEST CHANGES" : "ESCALATE TO HUMAN"}
+                  </span>
+                  {approvalResultModal.auto_merged && (
+                    <span className="ml-2 text-xs text-emerald-600 font-medium">Auto-merged</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Scores */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-ivory/50 rounded-lg px-3 py-2">
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase">Risk Score</span>
+                  <div className={`text-2xl font-bold ${approvalResultModal.risk_score < 30 ? "text-emerald-600" : approvalResultModal.risk_score < 60 ? "text-amber-600" : "text-red-600"}`}>
+                    {approvalResultModal.risk_score}/100
+                  </div>
+                </div>
+                <div className="bg-ivory/50 rounded-lg px-3 py-2">
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase">Confidence</span>
+                  <div className="text-2xl font-bold text-navy">{approvalResultModal.confidence}/10</div>
+                </div>
+              </div>
+
+              {/* Reasoning */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">What Changed</span>
+                <p className="text-sm text-navy mt-1">{approvalResultModal.reasoning.what_changed}</p>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Blast Radius</span>
+                <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded ${
+                  approvalResultModal.reasoning.blast_radius === "low" ? "text-emerald-600 bg-emerald-100"
+                    : approvalResultModal.reasoning.blast_radius === "medium" ? "text-amber-600 bg-amber-100"
+                      : "text-red-600 bg-red-100"
+                }`}>
+                  {approvalResultModal.reasoning.blast_radius.toUpperCase()}
+                </span>
+              </div>
+
+              {approvalResultModal.reasoning.failure_modes.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Failure Modes</span>
+                  <ul className="mt-1 space-y-0.5">
+                    {approvalResultModal.reasoning.failure_modes.map((f, idx) => (
+                      <li key={idx} className="text-xs text-navy flex items-start gap-1.5">
+                        <span className="text-red-400 mt-0.5">&#8226;</span> {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {approvalResultModal.reasoning.what_verified.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">What I Verified</span>
+                  <ul className="mt-1 space-y-0.5">
+                    {approvalResultModal.reasoning.what_verified.map((v, idx) => (
+                      <li key={idx} className="text-xs text-navy flex items-start gap-1.5">
+                        <span className="text-emerald-400 mt-0.5">&#10003;</span> {v}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {approvalResultModal.reasoning.confidence_gaps.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider">Confidence Gaps</span>
+                  <ul className="mt-1 space-y-0.5">
+                    {approvalResultModal.reasoning.confidence_gaps.map((g, idx) => (
+                      <li key={idx} className="text-xs text-navy flex items-start gap-1.5">
+                        <span className="text-amber-400 mt-0.5">&#9888;</span> {g}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-ivory-dark">
+              <button onClick={() => setApprovalResultModal(null)} className="w-full bg-navy text-white py-2 rounded-lg text-sm font-medium hover:bg-navy/90">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
