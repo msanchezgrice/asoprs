@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BookmarkPlus,
+  Check,
   CheckSquare2,
   ChevronDown,
   FileOutput,
+  Loader2,
   RefreshCw,
   Sparkles,
   X,
@@ -27,10 +30,12 @@ interface StudyPackGeneratorModalProps {
   documents: Document[];
   generating: boolean;
   errorMessage?: string | null;
-  preview?: { pack: StudyPack; text: string } | null;
+  preview?: { pack: StudyPack; text: string; saved?: boolean } | null;
   onClose: () => void;
   onGenerate: (request: StudyPackRequest) => void;
   onClearPreview?: () => void;
+  onSave?: () => void;
+  saving?: boolean;
 }
 
 export function StudyPackGeneratorModal({
@@ -42,6 +47,8 @@ export function StudyPackGeneratorModal({
   onClose,
   onGenerate,
   onClearPreview,
+  onSave,
+  saving,
 }: StudyPackGeneratorModalProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [contentMode, setContentMode] =
@@ -526,6 +533,29 @@ export function StudyPackGeneratorModal({
                         className="rounded-full border border-ivory-dark bg-white px-3 py-1.5 text-xs font-semibold text-warm-gray transition hover:border-coral/20 hover:text-navy"
                       >
                         Clear preview
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3">
+                    {preview.saved ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                        <Check className="h-3.5 w-3.5" />
+                        Saved to Library
+                      </span>
+                    ) : onSave ? (
+                      <button
+                        type="button"
+                        onClick={onSave}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 rounded-full bg-coral px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-coral/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {saving ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <BookmarkPlus className="h-3.5 w-3.5" />
+                        )}
+                        {saving ? "Saving..." : "Save to Library"}
                       </button>
                     ) : null}
                   </div>
