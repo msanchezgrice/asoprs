@@ -13,6 +13,7 @@ import {
   DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
   DEFAULT_STUDY_PACK_MCQ_COUNT,
   sanitizeStudyPackCount,
+  type StudyPack,
   type StudyPackContentMode,
   type StudyPackOutputFormat,
 } from "@/lib/study-pack";
@@ -255,6 +256,65 @@ export async function POST(request: NextRequest) {
     const message =
       error instanceof Error ? error.message : "Failed to generate study pack.";
     console.error("Study pack generation failed", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const userDb = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await userDb.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    const body = (await request.json()) as {
+      pack?: StudyPack;
+      text?: string;
+      outputFormat?: StudyPackOutputFormat;
+      selectedDocumentIds?: string[];
+      instructions?: string;
+    };
+
+    if (!body.pack || !body.pack.title || !isOutputFormat(body.outputFormat)) {
+      return NextResponse.json(
+        { error: "Invalid save request." },
+        { status: 400 }
+      );
+    }
+
+    const packText = body.text || buildStudyPackText(body.pack);
+    const { data: inserted, error } = await userDb
+      .from("user_study_packs")
+      .insert({
+        user_id: user.id,
+        title: body.pack.title,
+        content_mode: body.pack.contentMode,
+        section_titles: body.pack.sections.map((s) => s.title),
+        source_document_ids: body.selectedDocumentIds || [],
+        output_format: body.outputFormat,
+        generation_instructions: body.instructions || null,
+        pack_json: body.pack,
+        pack_text: packText,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Failed to save study pack", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ id: inserted.id });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to save study pack.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
