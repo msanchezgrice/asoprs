@@ -79,8 +79,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  if (!id) {
-    return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!id || !UUID_RE.test(id)) {
+    return NextResponse.json({ error: "valid id required" }, { status: 400 });
   }
 
   const { error } = await supabase
