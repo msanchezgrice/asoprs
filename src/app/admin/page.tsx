@@ -205,7 +205,15 @@ export default function AdminPage() {
     model: "claude-opus-4-6",
     notify_on_approve: true,
     notify_on_escalate: true,
+    // Autonomous loop settings
+    auto_approve_proposals: false,
+    auto_trigger_build: false,
+    auto_run_approval_agent: false,
+    max_improvements_per_day: 10,
+    auto_approve_max_confidence: "high" as "high" | "medium" | "low",
+    auto_approve_delivery_strategies: ["global_fix", "config_change", "content_weight", "isolated_module"] as string[],
   });
+  const [dailyCapInfo, setDailyCapInfo] = useState<{ used: number; limit: number } | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [newBlockedPath, setNewBlockedPath] = useState("");
   const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
@@ -250,6 +258,9 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setSyncResult({ updated: data.updated });
+        if (data.daily_cap) {
+          setDailyCapInfo({ used: data.daily_cap.count, limit: data.daily_cap.limit });
+        }
         // Auto-hide after 3 seconds
         setTimeout(() => setSyncResult(null), 3000);
         // Refresh data after sync
@@ -661,6 +672,13 @@ export default function AdminPage() {
             <p className="text-xs text-warm-gray mt-0.5">PM Brief proposals and feedback</p>
           </div>
           <div className="flex items-center gap-3">
+            {dailyCapInfo && (
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                dailyCapInfo.used >= dailyCapInfo.limit ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700"
+              }`}>
+                {dailyCapInfo.used}/{dailyCapInfo.limit} improvements today
+              </span>
+            )}
             {syncResult && (
               <span className="text-xs text-emerald-600 font-medium animate-pulse">
                 Updated {syncResult.updated} item{syncResult.updated !== 1 ? "s" : ""}
@@ -1684,6 +1702,100 @@ export default function AdminPage() {
                   <option value="claude-opus-4-6">claude-opus-4-6</option>
                   <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
                 </select>
+              </div>
+
+              {/* Autonomous Loop */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Autonomous Loop</span>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.auto_approve_proposals}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, auto_approve_proposals: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Auto-approve high-confidence proposals from briefs</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.auto_trigger_build}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, auto_trigger_build: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Auto-trigger build after approval (skip manual Build click)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={approvalConfig.auto_run_approval_agent}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, auto_run_approval_agent: e.target.checked }))}
+                      className="accent-navy"
+                    />
+                    <span className="text-sm text-navy">Auto-run approval agent on new PRs</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-navy">Max improvements per day:</label>
+                    <input
+                      type="number"
+                      value={approvalConfig.max_improvements_per_day}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, max_improvements_per_day: Number(e.target.value) }))}
+                      className="w-20 border border-ivory-dark rounded px-2 py-1 text-sm text-navy"
+                      min={1}
+                      max={100}
+                    />
+                  </div>
+                  {dailyCapInfo && (
+                    <div className={`text-xs px-3 py-2 rounded ${
+                      dailyCapInfo.used >= dailyCapInfo.limit ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
+                    }`}>
+                      {dailyCapInfo.used}/{dailyCapInfo.limit} improvements used today
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Auto-Approve Criteria */}
+              <div>
+                <span className="text-[10px] font-semibold text-warm-gray uppercase tracking-wider block mb-2">Auto-Approve Criteria</span>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-navy block mb-1">Minimum confidence:</label>
+                    <select
+                      value={approvalConfig.auto_approve_max_confidence}
+                      onChange={(e) => setApprovalConfig((prev) => ({ ...prev, auto_approve_max_confidence: e.target.value as "high" | "medium" | "low" }))}
+                      className="border border-ivory-dark rounded px-3 py-1.5 text-sm text-navy w-full"
+                    >
+                      <option value="high">High only</option>
+                      <option value="medium">Medium and above</option>
+                      <option value="low">All (including low)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-navy block mb-1">Allowed delivery strategies:</label>
+                    <div className="space-y-1.5">
+                      {(["global_fix", "config_change", "content_weight", "isolated_module"] as const).map((strategy) => (
+                        <label key={strategy} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={approvalConfig.auto_approve_delivery_strategies.includes(strategy)}
+                            onChange={(e) => {
+                              setApprovalConfig((prev) => ({
+                                ...prev,
+                                auto_approve_delivery_strategies: e.target.checked
+                                  ? [...prev.auto_approve_delivery_strategies, strategy]
+                                  : prev.auto_approve_delivery_strategies.filter((s) => s !== strategy),
+                              }));
+                            }}
+                            className="accent-navy"
+                          />
+                          <span className="text-sm text-navy">{DELIVERY_STRATEGY_LABELS[strategy]?.label ?? strategy}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Notifications */}

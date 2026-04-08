@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase";
+import { getAutonomousConfig } from "@/features/auto-build/daily-cap";
+import { generateBuildPlan, executeBuildPlan } from "@/features/auto-build/build-proposal";
 
 export async function GET() {
   const supabase = await createServerSupabaseClient();
@@ -91,7 +93,80 @@ export async function PATCH(req: NextRequest) {
     proposals[proposal_index] = { ...proposal, status: "approved" };
     await db.from("pm_briefs").update({ action_items: proposals, status: "actioned" }).eq("id", brief_id);
 
-    return NextResponse.json({ action: "approved", change });
+    // Auto-trigger build if enabled
+    let buildResult = null;
+    try {
+      const autoConfig = await getAutonomousConfig();
+      if (autoConfig.auto_trigger_build && change) {
+        const originTrace = change.origin_trace as Record<string, unknown> | null;
+        const deliveryStrategy = (originTrace?.delivery_strategy as string) ?? undefined;
+        const targetUserId = (originTrace?.target_user_id as string) ?? undefined;
+        const tier = (proposal.tier as string) ?? "code";
+
+        const prd = await generateBuildPlan(
+          change.title,
+          change.description ?? "",
+          (originTrace?.evidence as string) ?? "",
+          tier,
+        );
+
+        const execResult = await executeBuildPlan(change.id, prd, tier, deliveryStrategy, targetUserId);
+
+        if (execResult.buildStatus === "config_applied") {
+          await db.from("shipped_changes").update({
+            feature_context: {
+              ...change.feature_context,
+              prd,
+              build_status: "config_applied",
+              delivery_strategy: deliveryStrategy,
+              completed_at: new Date().toISOString(),
+            },
+          }).eq("id", change.id);
+          buildResult = { status: "config_applied" };
+        } else if (process.env.GITHUB_TOKEN) {
+          // Create GitHub Issue for code changes
+          try {
+            const issueRes = await fetch(
+              "https://api.github.com/repos/msanchezgrice/asoprs/issues",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+                  "Content-Type": "application/json",
+                  Accept: "application/vnd.github+json",
+                },
+                body: JSON.stringify({
+                  title: change.title,
+                  body: execResult.result,
+                  labels: ["auto-build"],
+                }),
+              },
+            );
+            if (issueRes.ok) {
+              const issue = await issueRes.json();
+              await db.from("shipped_changes").update({
+                feature_context: {
+                  ...change.feature_context,
+                  prd,
+                  build_status: "triggered",
+                  delivery_strategy: deliveryStrategy,
+                  github_issue_url: issue.html_url,
+                  github_issue_number: issue.number,
+                  triggered_at: new Date().toISOString(),
+                },
+              }).eq("id", change.id);
+              buildResult = { status: "triggered", github_issue_url: issue.html_url };
+            }
+          } catch (ghErr) {
+            console.error("Auto-trigger GitHub issue failed:", ghErr);
+          }
+        }
+      }
+    } catch (buildErr) {
+      console.error("Auto-trigger build failed:", buildErr);
+    }
+
+    return NextResponse.json({ action: "approved", change, auto_build: buildResult });
   }
 
   if (action === "reject") {
