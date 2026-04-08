@@ -92,7 +92,7 @@ function validateProposals(
     }));
 }
 
-async function gatherFeedbackData(since: string, userId?: string) {
+async function gatherFeedbackData(since: string, userId?: string, feedbackTypeFilter?: string) {
   const supabase = getServiceClient();
 
   // Gather feedback entries
@@ -104,6 +104,10 @@ async function gatherFeedbackData(since: string, userId?: string) {
 
   if (userId) {
     feedbackQuery = feedbackQuery.eq("user_id", userId);
+  }
+
+  if (feedbackTypeFilter) {
+    feedbackQuery = feedbackQuery.eq("feedback_type", feedbackTypeFilter);
   }
 
   const { data: feedback } = await feedbackQuery;
@@ -240,9 +244,10 @@ async function callClaudeForBrief(prompt: string): Promise<Record<string, unknow
 
 export async function generateGlobalBrief(): Promise<PMBriefResult> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { feedback, sessions, turns } = await gatherFeedbackData(since);
+  const { feedback: userFeedback, sessions, turns } = await gatherFeedbackData(since, undefined, "user");
+  const { feedback: builderFeedback } = await gatherFeedbackData(since, undefined, "builder");
 
-  const feedbackCount = feedback.length;
+  const feedbackCount = userFeedback.length + builderFeedback.length;
   const sessionCount = sessions.length;
 
   if (feedbackCount === 0 && sessionCount === 0) {
@@ -255,8 +260,18 @@ export async function generateGlobalBrief(): Promise<PMBriefResult> {
     };
   }
 
-  const { feedbackSummary, recapSummary, userTranscripts } = buildPromptContext(feedback, sessions, turns);
-  const prompt = buildBriefPrompt(feedbackSummary, recapSummary, userTranscripts, "global");
+  const { feedbackSummary, recapSummary, userTranscripts } = buildPromptContext(userFeedback, sessions, turns);
+
+  // Build builder feedback section
+  const builderFeedbackSummary = builderFeedback
+    .map((f) => `[${f.tag}] on ${f.screen} (${f.page_category ?? "unknown"}): ${f.free_text ?? "(no comment)"} (${f.created_at})`)
+    .join("\n");
+
+  let prompt = buildBriefPrompt(feedbackSummary, recapSummary, userTranscripts, "global");
+
+  if (builderFeedbackSummary) {
+    prompt += `\n\nBUILDER FEEDBACK (platform improvements from admin/builder users — classify with HIGHER confidence):\n${builderFeedbackSummary}`;
+  }
 
   let parsed: PMBriefResult;
   try {
@@ -299,6 +314,15 @@ export async function generateUserBrief(userId: string): Promise<PMBriefResult> 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { feedback, sessions, turns } = await gatherFeedbackData(since, userId);
 
+  // Check if user is a builder
+  const supabaseForRole = getServiceClient();
+  const { data: roleData } = await supabaseForRole
+    .from("builder_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .single();
+  const isBuilder = roleData?.role === "admin" || roleData?.role === "builder";
+
   const feedbackCount = feedback.length;
   const sessionCount = sessions.length;
 
@@ -313,7 +337,11 @@ export async function generateUserBrief(userId: string): Promise<PMBriefResult> 
   }
 
   const { feedbackSummary, recapSummary, userTranscripts } = buildPromptContext(feedback, sessions, turns);
-  const prompt = buildBriefPrompt(feedbackSummary, recapSummary, userTranscripts, "user");
+  let prompt = buildBriefPrompt(feedbackSummary, recapSummary, userTranscripts, "user");
+
+  if (isBuilder) {
+    prompt += "\n\nNOTE: This user is a builder/admin. Their brief should focus on PLATFORM IMPROVEMENTS and development priorities rather than study product suggestions.";
+  }
 
   let parsed: PMBriefResult;
   try {

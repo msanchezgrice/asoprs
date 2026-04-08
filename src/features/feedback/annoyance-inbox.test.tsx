@@ -9,6 +9,20 @@ vi.mock("@/hooks/use-auth-session", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-builder-role", () => ({
+  useBuilderRole: () => ({
+    builderRole: { role: "user", canModify: [] },
+    isBuilder: false,
+    isAdmin: false,
+    canModifyCategory: () => false,
+    loading: false,
+  }),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/flashcards",
+}));
+
 describe("AnnoyanceInbox", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

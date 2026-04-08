@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { screen, tag, free_text, context_json } = body;
+  const { screen, tag, free_text, context_json, feedback_type, user_role, page_category } = body;
 
   if (!screen || !tag) {
     return NextResponse.json(
@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     tag,
     free_text: free_text ?? null,
     context_json: context_json ?? null,
+    feedback_type: feedback_type ?? "user",
+    user_role: user_role ?? "user",
+    page_category: page_category ?? null,
   }).select().single();
 
   if (error) {

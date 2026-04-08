@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { MessageSquareWarning, X, Send } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { useBuilderRole } from "@/hooks/use-builder-role";
+import { getPageCategory, getFeedbackType } from "@/lib/page-categories";
 
-const TAGS = [
+const STUDY_TAGS = [
   { id: "too_easy", label: "Too easy" },
   { id: "too_long", label: "Too long" },
   { id: "bad_coverage", label: "Bad coverage" },
@@ -12,7 +15,17 @@ const TAGS = [
   { id: "wrong_answer", label: "Wrong answer" },
 ] as const;
 
-type Tag = (typeof TAGS)[number]["id"];
+const BUILDER_TAGS = [
+  { id: "ui_issue", label: "UI issue" },
+  { id: "missing_feature", label: "Missing feature" },
+  { id: "workflow_broken", label: "Workflow broken" },
+  { id: "performance", label: "Performance" },
+  { id: "ux_friction", label: "UX friction" },
+] as const;
+
+type StudyTag = (typeof STUDY_TAGS)[number]["id"];
+type BuilderTag = (typeof BUILDER_TAGS)[number]["id"];
+type Tag = StudyTag | BuilderTag;
 
 interface AnnoyanceInboxProps {
   screen: string;
@@ -21,11 +34,21 @@ interface AnnoyanceInboxProps {
 
 export function AnnoyanceInbox({ screen, context }: AnnoyanceInboxProps) {
   const { user } = useAuthSession();
+  const { builderRole, isBuilder } = useBuilderRole();
+  const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
   const [freeText, setFreeText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const pageCategory = getPageCategory(pathname);
+  const feedbackType = getFeedbackType(builderRole.role, pageCategory);
+  const tags = isBuilder && pageCategory === "admin"
+    ? [...STUDY_TAGS, ...BUILDER_TAGS]
+    : isBuilder
+      ? [...STUDY_TAGS, ...BUILDER_TAGS]
+      : STUDY_TAGS;
 
   const submit = useCallback(async () => {
     if (!selectedTag && !freeText.trim()) return;
@@ -41,6 +64,9 @@ export function AnnoyanceInbox({ screen, context }: AnnoyanceInboxProps) {
           tag: selectedTag ?? "other",
           free_text: freeText.trim() || null,
           context_json: context ?? null,
+          page_category: pageCategory,
+          feedback_type: feedbackType,
+          user_role: builderRole.role,
         }),
       });
 
@@ -56,7 +82,7 @@ export function AnnoyanceInbox({ screen, context }: AnnoyanceInboxProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedTag, freeText, screen, context, user]);
+  }, [selectedTag, freeText, screen, context, user, pageCategory, feedbackType, builderRole.role]);
 
   if (!user) return null;
 
@@ -86,6 +112,11 @@ export function AnnoyanceInbox({ screen, context }: AnnoyanceInboxProps) {
         <span className="text-sm font-medium text-amber-400">
           Something off?
         </span>
+        {isBuilder && (
+          <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+            {feedbackType} feedback
+          </span>
+        )}
         <button
           onClick={() => setExpanded(false)}
           className="text-slate-500 hover:text-slate-300"
@@ -95,7 +126,7 @@ export function AnnoyanceInbox({ screen, context }: AnnoyanceInboxProps) {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-3">
-        {TAGS.map((tag) => (
+        {tags.map((tag) => (
           <button
             key={tag.id}
             onClick={() =>

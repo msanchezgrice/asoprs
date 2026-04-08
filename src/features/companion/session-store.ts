@@ -43,20 +43,24 @@ export async function endSession(
 export async function saveTurn(
   sessionId: string,
   turn: Omit<CompanionTurn, "id" | "session_id">,
+  feedbackType?: string,
 ): Promise<void> {
   await supabase.from("companion_turns").insert({
     session_id: sessionId,
     ...turn,
+    feedback_type: feedbackType ?? "user",
   });
 }
 
 export async function saveEvent(
   sessionId: string,
   event: Omit<CompanionEvent, "id" | "session_id">,
+  feedbackType?: string,
 ): Promise<void> {
   await supabase.from("companion_events").insert({
     session_id: sessionId,
     ...event,
+    feedback_type: feedbackType ?? "user",
   });
 }
 

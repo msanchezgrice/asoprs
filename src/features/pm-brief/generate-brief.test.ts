@@ -44,6 +44,20 @@ vi.mock("@/lib/supabase", () => ({
       if (table === "feedback_entries") return resolveWith(feedbackData);
       if (table === "companion_sessions") return resolveWith(sessionsData);
       if (table === "companion_turns") return resolveWith([]);
+      if (table === "builder_roles") {
+        const chain: Record<string, unknown> = {};
+        const self = () => chain;
+        chain.select = self;
+        chain.gte = self;
+        chain.eq = self;
+        chain.in = self;
+        chain.not = self;
+        chain.order = self;
+        chain.single = () => Promise.resolve({ data: null, error: { code: "PGRST116" } });
+        chain.then = (resolve: (v: { data: unknown[] }) => void) =>
+          Promise.resolve({ data: [] }).then(resolve);
+        return chain;
+      }
       return resolveWith([]);
     },
   }),
