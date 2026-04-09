@@ -1,5 +1,25 @@
 import type { PdfHighlightRect } from "@/components/pdf/highlight-types";
 
+export interface HighlightRecord {
+  id: string;
+  document_id: string;
+  page_number: number;
+  color: string;
+  text_content: string | null;
+  rects: PdfHighlightRect[] | { chunkIndex: number; startOffset: number; endOffset: number };
+  created_at: string;
+}
+
+/**
+ * Fetch all highlights for a document. Returns an empty array on failure.
+ */
+export async function fetchHighlights(docId: string): Promise<HighlightRecord[]> {
+  const res = await fetch(`/api/highlights?docId=${encodeURIComponent(docId)}`);
+  if (!res.ok) return [];
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as HighlightRecord[]) : [];
+}
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

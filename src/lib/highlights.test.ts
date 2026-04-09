@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   deleteHighlightById,
+  fetchHighlights,
   isValidHighlightId,
   removeHighlightById,
   groupHighlightsByPage,
@@ -10,6 +11,50 @@ import {
 import type { PdfHighlightRect } from "@/components/pdf/highlight-types";
 
 const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
+
+describe("fetchHighlights", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("returns parsed highlights on success", async () => {
+    const mockData = [
+      { id: VALID_UUID, document_id: "doc-1", page_number: 1, color: "#FFEB3B", text_content: "Hello", rects: [], created_at: "2026-01-01T00:00:00Z" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockData),
+    }));
+
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual(mockData);
+    expect(global.fetch).toHaveBeenCalledWith("/api/highlights?docId=doc-1");
+  });
+
+  test("returns empty array when response is not ok", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual([]);
+  });
+
+  test("returns empty array when response body is not an array", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ error: "something" }),
+    }));
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual([]);
+  });
+
+  test("URL-encodes the docId parameter", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await fetchHighlights("doc with spaces");
+    expect(global.fetch).toHaveBeenCalledWith("/api/highlights?docId=doc%20with%20spaces");
+  });
+});
 
 describe("isValidHighlightId", () => {
   test("accepts a valid lowercase UUID", () => {
