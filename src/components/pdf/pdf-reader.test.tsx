@@ -193,4 +193,161 @@ describe("PdfReader", () => {
 
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
   });
+
+  test("does not call onDeleteHighlight when clicking highlight while in highlight mode", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    await screen.findByTestId("mock-page-1");
+
+    const buttons = screen.getAllByRole("button");
+    for (const btn of buttons) {
+      fireEvent.click(btn);
+    }
+
+    expect(onDeleteHighlight).not.toHaveBeenCalled();
+  });
+
+  test("removes only the clicked highlight and preserves others", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "First highlight",
+        rects: [{ x: 0.1, y: 0.1, width: 0.3, height: 0.03 }],
+      },
+      {
+        id: "hl-2",
+        page_number: 1,
+        color: "#4CAF50",
+        text_content: "Second highlight",
+        rects: [{ x: 0.1, y: 0.4, width: 0.3, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        {...({
+          url: "https://example.com/mock.pdf",
+          highlights,
+          highlightMode: false,
+          onSaveHighlight: vi.fn(),
+          onDeleteHighlight,
+        } as never)}
+      />
+    );
+
+    const firstButton = await screen.findByRole("button", {
+      name: /remove highlight: first highlight/i,
+    });
+
+    fireEvent.click(firstButton);
+
+    expect(onDeleteHighlight).toHaveBeenCalledTimes(1);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
+    expect(onDeleteHighlight).not.toHaveBeenCalledWith("hl-2");
+  });
+
+  test("renders highlights for the correct page and excludes highlights from other pages", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    // hl-page1 belongs to page 1 (rendered), hl-page2 belongs to page 2 (not rendered by mock)
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-page1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Page one highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+      {
+        id: "hl-page2",
+        page_number: 2,
+        color: "#2196F3",
+        text_content: "Page two highlight",
+        rects: [{ x: 0.2, y: 0.3, width: 0.3, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        {...({
+          url: "https://example.com/mock.pdf",
+          highlights,
+          highlightMode: false,
+          onSaveHighlight: vi.fn(),
+          onDeleteHighlight,
+        } as never)}
+      />
+    );
+
+    // Only page 1 is rendered by mock; page 1 button should be present
+    const page1Button = await screen.findByRole("button", {
+      name: /remove highlight: page one highlight/i,
+    });
+
+    // Page 2 highlight should not be visible since mock renders only 1 page
+    expect(screen.queryByRole("button", { name: /remove highlight: page two highlight/i })).toBeNull();
+
+    fireEvent.click(page1Button);
+    expect(onDeleteHighlight).toHaveBeenCalledTimes(1);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-page1");
+  });
+
+  test("renders multiple rects for a single highlight and calls onDeleteHighlight once per rect click", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-multi",
+        page_number: 1,
+        color: "#E91E63",
+        text_content: "Multi-rect highlight",
+        rects: [
+          { x: 0.1, y: 0.1, width: 0.3, height: 0.03 },
+          { x: 0.1, y: 0.15, width: 0.25, height: 0.03 },
+        ],
+      },
+    ];
+
+    render(
+      <PdfReader
+        {...({
+          url: "https://example.com/mock.pdf",
+          highlights,
+          highlightMode: false,
+          onSaveHighlight: vi.fn(),
+          onDeleteHighlight,
+        } as never)}
+      />
+    );
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove highlight: multi-rect highlight/i,
+    });
+
+    expect(buttons).toHaveLength(2);
+
+    fireEvent.click(buttons[0]);
+    expect(onDeleteHighlight).toHaveBeenCalledTimes(1);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-multi");
+  });
 });
