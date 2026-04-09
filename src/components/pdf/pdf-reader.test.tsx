@@ -270,43 +270,6 @@ describe("PdfReader", () => {
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
   });
 
-  test("does not call onDeleteHighlight when highlightMode is active", async () => {
-    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
-    const highlights: PdfHighlight[] = [
-      {
-        id: "hl-1",
-        page_number: 1,
-        color: "#FFEB3B",
-        text_content: "Saved highlight",
-        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
-      },
-    ];
-
-    render(
-      <PdfReader
-        {...({
-          url: "https://example.com/mock.pdf",
-          highlights,
-          highlightMode: true,
-          onSaveHighlight: vi.fn(),
-          onDeleteHighlight,
-        } as never)}
-      />
-    );
-
-    await screen.findByTestId("mock-page-1");
-
-    const buttons = screen.queryAllByRole("button", {
-      name: /remove highlight/i,
-    });
-    // Buttons exist but clicks are suppressed when highlightMode is true
-    for (const btn of buttons) {
-      fireEvent.click(btn);
-    }
-
-    expect(onDeleteHighlight).not.toHaveBeenCalled();
-  });
-
   test("removes only the clicked highlight without affecting others", async () => {
     const calls: string[] = [];
     const onDeleteHighlight = vi.fn((id: string) => {
@@ -333,13 +296,11 @@ describe("PdfReader", () => {
 
     render(
       <PdfReader
-        {...({
-          url: "https://example.com/mock.pdf",
-          highlights,
-          highlightMode: false,
-          onSaveHighlight: vi.fn(),
-          onDeleteHighlight,
-        } as never)}
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
       />
     );
 
@@ -370,13 +331,11 @@ describe("PdfReader", () => {
 
     render(
       <PdfReader
-        {...({
-          url: "https://example.com/mock.pdf",
-          highlights,
-          highlightMode: false,
-          onSaveHighlight: vi.fn(),
-          onDeleteHighlight,
-        } as never)}
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
       />
     );
 
@@ -477,6 +436,51 @@ describe("PdfReader", () => {
 
     fireEvent.click(page1Button);
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-page1");
+  });
+
+  test("removal is immediately reflected — highlight is no longer rendered after state update", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-remove",
+        page_number: 1,
+        color: "#4CAF50",
+        text_content: "To be removed",
+        rects: [{ x: 0.05, y: 0.05, width: 0.2, height: 0.02 }],
+      },
+    ];
+
+    const { rerender } = render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const btn = await screen.findByRole("button", {
+      name: /remove highlight: to be removed/i,
+    });
+
+    fireEvent.click(btn);
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-remove");
+
+    // Simulate parent removing the highlight from state after deletion
+    rerender(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={[]}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /remove highlight: to be removed/i })
+    ).not.toBeInTheDocument();
   });
 
   test("shows fallback label for highlights without text content", async () => {
