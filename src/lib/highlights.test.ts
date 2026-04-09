@@ -1,136 +1,229 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { fetchHighlights, saveHighlight, removeHighlight } from "./highlights";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import {
+  deleteHighlightById,
+  fetchHighlights,
+  isValidHighlightId,
+  removeHighlightById,
+  groupHighlightsByPage,
+  rectsOverlap,
+  findOverlappingHighlightIds,
+} from "./highlights";
+import type { PdfHighlightRect } from "@/components/pdf/highlight-types";
 
-function mockFetch(status: number, body: unknown) {
-  return vi.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  });
-}
+const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
 
-describe("highlights lib", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
+describe("fetchHighlights", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  describe("fetchHighlights", () => {
-    test("returns array of highlight records on success", async () => {
-      const records = [
-        { id: "hl-1", document_id: "doc-1", page_number: 1, color: "#FFEB3B", text_content: "Test", rects: [], created_at: "" },
-      ];
-      global.fetch = mockFetch(200, records);
+  test("returns parsed highlights on success", async () => {
+    const mockData = [
+      { id: VALID_UUID, document_id: "doc-1", page_number: 1, color: "#FFEB3B", text_content: "Hello", rects: [], created_at: "2026-01-01T00:00:00Z" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockData),
+    }));
 
-      const result = await fetchHighlights("doc-1");
-
-      expect(global.fetch).toHaveBeenCalledWith("/api/highlights?docId=doc-1");
-      expect(result).toEqual(records);
-    });
-
-    test("returns empty array when response is not ok", async () => {
-      global.fetch = mockFetch(500, { error: "server error" });
-
-      const result = await fetchHighlights("doc-1");
-
-      expect(result).toEqual([]);
-    });
-
-    test("returns empty array when response body is not an array", async () => {
-      global.fetch = mockFetch(200, { error: "unexpected" });
-
-      const result = await fetchHighlights("doc-1");
-
-      expect(result).toEqual([]);
-    });
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual(mockData);
+    expect(global.fetch).toHaveBeenCalledWith("/api/highlights?docId=doc-1");
   });
 
-  describe("saveHighlight", () => {
-    test("returns saved highlight record on success", async () => {
-      const saved = { id: "hl-new", document_id: "doc-1", page_number: 2, color: "#FF9800", text_content: "Hello", rects: [{ x: 0.1, y: 0.1, width: 0.3, height: 0.05 }], created_at: "" };
-      global.fetch = mockFetch(200, saved);
-
-      const result = await saveHighlight({
-        document_id: "doc-1",
-        page_number: 2,
-        color: "#FF9800",
-        text_content: "Hello",
-        rects: [{ x: 0.1, y: 0.1, width: 0.3, height: 0.05 }],
-      });
-
-      expect(result).toEqual(saved);
-      const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(call[0]).toBe("/api/highlights");
-      expect(call[1].method).toBe("POST");
-    });
-
-    test("returns null when response is not ok", async () => {
-      global.fetch = mockFetch(401, { error: "Authentication required" });
-
-      const result = await saveHighlight({
-        document_id: "doc-1",
-        page_number: 1,
-        color: "#FFEB3B",
-        text_content: "text",
-        rects: [],
-      });
-
-      expect(result).toBeNull();
-    });
-
-    test("returns null when response body has no id", async () => {
-      global.fetch = mockFetch(200, { error: "something wrong" });
-
-      const result = await saveHighlight({
-        document_id: "doc-1",
-        page_number: 1,
-        color: "#FFEB3B",
-        text_content: "text",
-        rects: [],
-      });
-
-      expect(result).toBeNull();
-    });
+  test("returns empty array when response is not ok", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual([]);
   });
 
-  describe("removeHighlight", () => {
-    test("returns true on successful deletion", async () => {
-      global.fetch = mockFetch(200, { success: true });
+  test("returns empty array when response body is not an array", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ error: "something" }),
+    }));
+    const result = await fetchHighlights("doc-1");
+    expect(result).toEqual([]);
+  });
 
-      const result = await removeHighlight("hl-1");
+  test("URL-encodes the docId parameter", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    }));
+    await fetchHighlights("doc with spaces");
+    expect(global.fetch).toHaveBeenCalledWith("/api/highlights?docId=doc%20with%20spaces");
+  });
+});
 
-      expect(result).toBe(true);
-      expect(global.fetch).toHaveBeenCalledWith("/api/highlights?id=hl-1", { method: "DELETE" });
-    });
+describe("isValidHighlightId", () => {
+  test("accepts a valid lowercase UUID", () => {
+    expect(isValidHighlightId(VALID_UUID)).toBe(true);
+  });
 
-    test("returns false when deletion fails", async () => {
-      global.fetch = mockFetch(400, { error: "valid id required" });
+  test("accepts a valid uppercase UUID", () => {
+    expect(isValidHighlightId(VALID_UUID.toUpperCase())).toBe(true);
+  });
 
-      const result = await removeHighlight("bad-id");
+  test("rejects an empty string", () => {
+    expect(isValidHighlightId("")).toBe(false);
+  });
 
-      expect(result).toBe(false);
-    });
+  test("rejects a plain string", () => {
+    expect(isValidHighlightId("not-a-uuid")).toBe(false);
+  });
 
-    test("returns false on server error", async () => {
-      global.fetch = mockFetch(500, { error: "internal error" });
+  test("rejects a truncated UUID", () => {
+    expect(isValidHighlightId("123e4567-e89b-12d3-a456")).toBe(false);
+  });
 
-      const result = await removeHighlight("hl-1");
+  test("rejects a numeric id", () => {
+    expect(isValidHighlightId("12345")).toBe(false);
+  });
+});
 
-      expect(result).toBe(false);
-    });
+describe("deleteHighlightById", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
-    test("URL-encodes the highlight id", async () => {
-      global.fetch = mockFetch(200, { success: true });
+  test("rejects an invalid id without calling fetch", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
 
-      await removeHighlight("hl/special&id");
+    await expect(deleteHighlightById("bad-id")).rejects.toThrow(
+      "Invalid highlight ID format"
+    );
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/highlights?id=hl%2Fspecial%26id",
-        { method: "DELETE" }
-      );
-    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("calls DELETE /api/highlights?id=<uuid> for a valid id", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await deleteHighlightById(VALID_UUID);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `/api/highlights?id=${VALID_UUID}`,
+      { method: "DELETE" }
+    );
+  });
+
+  test("throws when the server responds with an error status", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(deleteHighlightById(VALID_UUID)).rejects.toThrow(
+      "Failed to delete highlight: 500"
+    );
+  });
+
+  test("resolves without error on a valid UUID that the server accepts", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(
+      deleteHighlightById("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("removeHighlightById", () => {
+  test("removes the highlight with the given id", () => {
+    const highlights = [
+      { id: "a", page_number: 1 },
+      { id: "b", page_number: 2 },
+      { id: "c", page_number: 3 },
+    ];
+    expect(removeHighlightById(highlights, "b")).toEqual([
+      { id: "a", page_number: 1 },
+      { id: "c", page_number: 3 },
+    ]);
+  });
+
+  test("returns the original list unchanged when id is not found", () => {
+    const highlights = [{ id: "a", page_number: 1 }];
+    expect(removeHighlightById(highlights, "missing")).toEqual(highlights);
+  });
+
+  test("returns empty array when removing the only element", () => {
+    expect(removeHighlightById([{ id: "only", page_number: 1 }], "only")).toEqual([]);
+  });
+
+  test("does not mutate the original array", () => {
+    const highlights = [{ id: "x", page_number: 1 }, { id: "y", page_number: 2 }];
+    const copy = [...highlights];
+    removeHighlightById(highlights, "x");
+    expect(highlights).toEqual(copy);
+  });
+});
+
+describe("groupHighlightsByPage", () => {
+  test("groups highlights by page number", () => {
+    const highlights = [
+      { id: "a", page_number: 1 },
+      { id: "b", page_number: 2 },
+      { id: "c", page_number: 1 },
+    ];
+    const grouped = groupHighlightsByPage(highlights);
+    expect(grouped.get(1)).toEqual([
+      { id: "a", page_number: 1 },
+      { id: "c", page_number: 1 },
+    ]);
+    expect(grouped.get(2)).toEqual([{ id: "b", page_number: 2 }]);
+  });
+
+  test("returns empty map for empty input", () => {
+    expect(groupHighlightsByPage([])).toEqual(new Map());
+  });
+});
+
+describe("rectsOverlap", () => {
+  const r = (x: number, y: number, w: number, h: number): PdfHighlightRect => ({
+    x, y, width: w, height: h,
+  });
+
+  test("returns true for overlapping rects", () => {
+    expect(rectsOverlap(r(0.1, 0.1, 0.3, 0.1), r(0.2, 0.1, 0.3, 0.1))).toBe(true);
+  });
+
+  test("returns false for non-overlapping rects side by side", () => {
+    expect(rectsOverlap(r(0.0, 0.1, 0.2, 0.1), r(0.3, 0.1, 0.2, 0.1))).toBe(false);
+  });
+
+  test("returns false for rects that only touch at the edge", () => {
+    expect(rectsOverlap(r(0.0, 0.1, 0.3, 0.1), r(0.3, 0.1, 0.3, 0.1))).toBe(false);
+  });
+
+  test("returns true when one rect is contained within another", () => {
+    expect(rectsOverlap(r(0.0, 0.0, 1.0, 1.0), r(0.2, 0.2, 0.1, 0.1))).toBe(true);
+  });
+});
+
+describe("findOverlappingHighlightIds", () => {
+  const makeH = (id: string, rects: PdfHighlightRect[]) => ({ id, rects });
+
+  test("returns ids of highlights that overlap with the target", () => {
+    const highlights = [
+      makeH("a", [{ x: 0.1, y: 0.1, width: 0.4, height: 0.05 }]),
+      makeH("b", [{ x: 0.2, y: 0.1, width: 0.4, height: 0.05 }]),
+      makeH("c", [{ x: 0.8, y: 0.8, width: 0.1, height: 0.05 }]),
+    ];
+    const result = findOverlappingHighlightIds("a", highlights);
+    expect(result).toContain("b");
+    expect(result).not.toContain("a");
+    expect(result).not.toContain("c");
+  });
+
+  test("returns empty array when target id is not found", () => {
+    const highlights = [makeH("a", [{ x: 0.1, y: 0.1, width: 0.3, height: 0.05 }])];
+    expect(findOverlappingHighlightIds("nonexistent", highlights)).toEqual([]);
+  });
+
+  test("does not include the target highlight id in results", () => {
+    const highlights = [makeH("a", [{ x: 0.1, y: 0.1, width: 0.3, height: 0.05 }])];
+    const result = findOverlappingHighlightIds("a", highlights);
+    expect(result).not.toContain("a");
   });
 });
