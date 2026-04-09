@@ -119,7 +119,7 @@ describe("deleteHighlightById", () => {
     );
   });
 
-  test("resolves without error on a 404-style id that is valid UUID format", async () => {
+  test("resolves without error on a valid UUID that the server accepts", async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", mockFetch);
 
@@ -223,6 +223,7 @@ describe("findOverlappingHighlightIds", () => {
 
   test("does not include the target highlight id in results", () => {
     const highlights = [makeH("a", [{ x: 0.1, y: 0.1, width: 0.3, height: 0.05 }])];
-    expect(findOverlappingHighlightIds("a", highlights)).not.toContain("a");
+    const result = findOverlappingHighlightIds("a", highlights);
+    expect(result).not.toContain("a");
   });
 });
