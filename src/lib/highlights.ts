@@ -11,6 +11,26 @@ export interface HighlightRecord {
 }
 
 /**
+ * Persist a new highlight to the database. Returns the saved record, or null on failure.
+ */
+export async function createHighlight(payload: {
+  document_id: string;
+  page_number: number;
+  color?: string;
+  text_content?: string;
+  rects: PdfHighlightRect[];
+}): Promise<HighlightRecord | null> {
+  const res = await fetch("/api/highlights", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as HighlightRecord;
+  return data.id ? data : null;
+}
+
+/**
  * Fetch all highlights for a document. Returns an empty array on failure.
  */
 export async function fetchHighlights(docId: string): Promise<HighlightRecord[]> {
