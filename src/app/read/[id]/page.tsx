@@ -15,6 +15,7 @@ import {
   BookOpen,
   AlignLeft,
   Highlighter,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { CATEGORY_META, type Category } from "@/data/sample-documents";
@@ -81,7 +82,7 @@ interface Highlight {
   created_at: string;
 }
 
-const HIGHLIGHT_COLORS = ["#FFEB3B", "#FF9800", "#4CAF50", "#2196F3", "#E91E63"];
+const DEFAULT_HIGHLIGHT_COLOR = "#FFEB3B";
 
 function getPdfUrl(storagePath: string | null): string | null {
   if (!storagePath) return null;
@@ -199,12 +200,7 @@ function formatTextContent(
   return elements;
 }
 
-export default function ReaderPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+export function ReaderPageContent({ id }: { id: string }) {
   const { user } = useAuthSession();
   const [doc, setDoc] = useState<DocData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,7 +211,7 @@ export default function ReaderPage({
   const [chatLoading, setChatLoading] = useState(false);
 
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [highlightColor, setHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
+  const [highlightUndoStack, setHighlightUndoStack] = useState<string[]>([]);
   const [highlightMode, setHighlightMode] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -237,6 +233,7 @@ export default function ReaderPage({
   useEffect(() => {
     if (!user) {
       setHighlights([]);
+      setHighlightUndoStack([]);
       return;
     }
 
@@ -247,6 +244,10 @@ export default function ReaderPage({
       })
       .catch(() => {});
   }, [id, user]);
+
+  useEffect(() => {
+    setHighlightUndoStack([]);
+  }, [id]);
 
   const saveHighlight = useCallback(
     async (chunkIndex: number, startOffset: number, endOffset: number, text: string) => {
@@ -261,7 +262,7 @@ export default function ReaderPage({
         body: JSON.stringify({
           document_id: id,
           page_number: chunkIndex,
-          color: highlightColor,
+          color: DEFAULT_HIGHLIGHT_COLOR,
           text_content: text,
           rects: { chunkIndex, startOffset, endOffset },
         }),
@@ -272,10 +273,12 @@ export default function ReaderPage({
       }
       const hl = await res.json();
       if (hl.id) {
+        setSaveNotice(null);
         setHighlights((prev) => [...prev, hl]);
+        setHighlightUndoStack((prev) => [...prev, hl.id]);
       }
     },
-    [id, highlightColor, user]
+    [id, user]
   );
 
   const savePdfHighlight = useCallback(
@@ -291,7 +294,7 @@ export default function ReaderPage({
         body: JSON.stringify({
           document_id: id,
           page_number: pageNumber,
-          color: highlightColor,
+          color: DEFAULT_HIGHLIGHT_COLOR,
           text_content: text,
           rects,
         }),
@@ -304,10 +307,12 @@ export default function ReaderPage({
 
       const highlight = await res.json();
       if (highlight.id) {
+        setSaveNotice(null);
         setHighlights((prev) => [...prev, highlight]);
+        setHighlightUndoStack((prev) => [...prev, highlight.id]);
       }
     },
-    [highlightColor, id, user]
+    [id, user]
   );
 
   const deleteHighlight = useCallback(async (hlId: string) => {
@@ -317,7 +322,17 @@ export default function ReaderPage({
     }
     await fetch(`/api/highlights?id=${hlId}`, { method: "DELETE" });
     setHighlights((prev) => prev.filter((h) => h.id !== hlId));
+    setHighlightUndoStack((prev) => prev.filter((savedId) => savedId !== hlId));
   }, [user]);
+
+  const undoLastHighlight = useCallback(async () => {
+    const lastHighlightId = highlightUndoStack[highlightUndoStack.length - 1];
+    if (!lastHighlightId) {
+      return;
+    }
+
+    await deleteHighlight(lastHighlightId);
+  }, [deleteHighlight, highlightUndoStack]);
 
   const handleTextSelection = useCallback(() => {
     if (!highlightMode || !contentRef.current) return;
@@ -527,20 +542,22 @@ export default function ReaderPage({
           <Highlighter size={13} /> Highlight
         </button>
 
-        {highlightMode && (
-          <div className="flex items-center gap-1">
-            {HIGHLIGHT_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setHighlightColor(c)}
-                className={`h-5 w-5 rounded-full border-2 transition-all ${
-                  highlightColor === c ? "border-navy scale-110" : "border-transparent"
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            void undoLastHighlight();
+          }}
+          disabled={highlightUndoStack.length === 0}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+            highlightUndoStack.length > 0
+              ? "bg-ivory text-warm-gray hover:bg-ivory-dark hover:text-navy"
+              : "cursor-not-allowed bg-ivory text-warm-gray/50"
+          }`}
+          title="Undo last highlight"
+          aria-label="Undo highlight"
+        >
+          <RotateCcw size={13} /> Undo
+        </button>
 
         {highlights.length > 0 && (
           <span className="ml-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
@@ -853,4 +870,14 @@ export default function ReaderPage({
       </div>
     </div>
   );
+}
+
+export default function ReaderPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+
+  return <ReaderPageContent id={id} />;
 }
