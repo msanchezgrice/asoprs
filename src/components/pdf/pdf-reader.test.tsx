@@ -193,4 +193,148 @@ describe("PdfReader", () => {
 
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
   });
+
+  test("shows context menu when right-clicking a highlight in non-highlight mode", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.contextMenu(buttons[0]);
+
+    expect(await screen.findByTestId("highlight-context-menu")).toBeInTheDocument();
+  });
+
+  test("clicking Remove Highlight in context menu calls onDeleteHighlight", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.contextMenu(buttons[0]);
+
+    const removeMenuItem = await screen.findByRole("menuitem", {
+      name: /remove highlight/i,
+    });
+    fireEvent.click(removeMenuItem);
+
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
+  });
+
+  test("Delete key on focused highlight calls onDeleteHighlight", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.keyDown(buttons[0], { key: "Delete" });
+
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
+  });
+
+  test("context menu does not appear when right-clicking on non-highlight area", async () => {
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={[]}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+      />
+    );
+
+    await screen.findByTestId("mock-document");
+    fireEvent.contextMenu(screen.getByTestId("mock-document"));
+
+    expect(screen.queryByTestId("highlight-context-menu")).not.toBeInTheDocument();
+  });
+
+  test("highlight buttons include hover ring classes for visual feedback", async () => {
+    const onDeleteHighlight = vi.fn();
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove highlight/i,
+    });
+
+    expect(buttons[0].className).toContain("hover:ring-1");
+    expect(buttons[0].className).toContain("hover:ring-coral/50");
+  });
 });

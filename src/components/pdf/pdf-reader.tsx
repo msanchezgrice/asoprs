@@ -6,6 +6,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Loader2 } from "lucide-react";
 import { type PdfHighlightRect } from "./highlight-types";
+import { HighlightContextMenu } from "./HighlightContextMenu";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -65,6 +66,12 @@ export function PdfReader({
   const [pageWidth, setPageWidth] = useState(900);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
+  const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    highlightId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -159,7 +166,20 @@ export function PdfReader({
   }
 
   return (
-    <div
+    <>
+      {contextMenu && (
+        <HighlightContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onRemove={() => {
+            if (onDeleteHighlight) {
+              void onDeleteHighlight(contextMenu.highlightId);
+            }
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+      <div
       ref={containerRef}
       className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8"
       onMouseUp={() => {
@@ -216,7 +236,7 @@ export function PdfReader({
                       <button
                         key={`${highlight.id}-${rectIndex}`}
                         type="button"
-                        className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? "pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50" : ""}`}
+                        className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? `pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50${selectedHighlightId === highlight.id ? " ring-1 ring-coral/70" : ""}` : ""}`}
                         style={{
                           left: `${rect.x * 100}%`,
                           top: `${rect.y * 100}%`,
@@ -234,8 +254,34 @@ export function PdfReader({
                           if (!onDeleteHighlight || highlightMode) {
                             return;
                           }
-
+                          setSelectedHighlightId(highlight.id);
                           void onDeleteHighlight(highlight.id);
+                        }}
+                        onFocus={() => {
+                          if (!highlightMode) {
+                            setSelectedHighlightId(highlight.id);
+                          }
+                        }}
+                        onBlur={() => setSelectedHighlightId(null)}
+                        onContextMenu={(e) => {
+                          if (!onDeleteHighlight || highlightMode) {
+                            return;
+                          }
+                          e.preventDefault();
+                          setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            highlightId: highlight.id,
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === "Delete" &&
+                            onDeleteHighlight &&
+                            !highlightMode
+                          ) {
+                            void onDeleteHighlight(highlight.id);
+                          }
                         }}
                       />
                     ))
@@ -247,5 +293,6 @@ export function PdfReader({
         </Document>
       </div>
     </div>
+    </>
   );
 }
