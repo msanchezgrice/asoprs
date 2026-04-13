@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Loader2 } from "lucide-react";
 import { type PdfHighlightRect } from "./highlight-types";
-import { HighlightContextMenu } from "./HighlightContextMenu";
+import { HighlightContextMenu } from "./highlight-context-menu";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -67,11 +68,7 @@ export function PdfReader({
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    highlightId: string;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; highlightId: string } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -90,6 +87,24 @@ export function PdfReader({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  // Handle Delete key for click-selected highlights, and Escape to dismiss
+  useEffect(() => {
+    if (!onDeleteHighlight) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Delete" && selectedHighlightId && !highlightMode) {
+        void onDeleteHighlight(selectedHighlightId);
+        setSelectedHighlightId(null);
+      } else if (e.key === "Escape") {
+        setContextMenu(null);
+        setSelectedHighlightId(null);
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [selectedHighlightId, onDeleteHighlight, highlightMode]);
 
   const highlightsByPage = useMemo(() => {
     const grouped = new Map<number, PdfHighlight[]>();
@@ -166,20 +181,7 @@ export function PdfReader({
   }
 
   return (
-    <>
-      {contextMenu && (
-        <HighlightContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onRemove={() => {
-            if (onDeleteHighlight) {
-              void onDeleteHighlight(contextMenu.highlightId);
-            }
-          }}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-      <div
+    <div
       ref={containerRef}
       className="flex-1 overflow-auto bg-ivory-dark/50 p-4 md:p-8"
       onMouseUp={() => {
@@ -232,59 +234,55 @@ export function PdfReader({
 
                 <div className="pointer-events-none absolute inset-0">
                   {pageHighlights.map((highlight) =>
-                    highlight.rects.map((rect, rectIndex) => (
-                      <button
-                        key={`${highlight.id}-${rectIndex}`}
-                        type="button"
-                        className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${onDeleteHighlight && !highlightMode ? `pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50${selectedHighlightId === highlight.id ? " ring-1 ring-coral/70" : ""}` : ""}`}
-                        style={{
-                          left: `${rect.x * 100}%`,
-                          top: `${rect.y * 100}%`,
-                          width: `${rect.width * 100}%`,
-                          height: `${rect.height * 100}%`,
-                          backgroundColor: `${highlight.color}66`,
-                        }}
-                        title={
-                          onDeleteHighlight && !highlightMode
-                            ? `Remove highlight: ${highlight.text_content || "Saved highlight"}`
-                            : highlight.text_content || "Saved highlight"
-                        }
-                        aria-label={`Remove highlight: ${highlight.text_content || "Saved highlight"}`}
-                        onClick={() => {
-                          if (!onDeleteHighlight || highlightMode) {
-                            return;
+                    highlight.rects.map((rect, rectIndex) => {
+                      const isSelected = selectedHighlightId === highlight.id;
+                      const isInteractive = !!onDeleteHighlight && !highlightMode;
+                      return (
+                        <button
+                          key={`${highlight.id}-${rectIndex}`}
+                          type="button"
+                          tabIndex={isInteractive ? 0 : -1}
+                          className={`absolute appearance-none rounded-[2px] border-0 p-0 transition-all ${
+                            isInteractive
+                              ? `pointer-events-auto cursor-pointer hover:ring-1 hover:ring-coral/50 hover:brightness-90 focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-1 ${isSelected ? "ring-2 ring-coral" : ""}`
+                              : ""
+                          }`}
+                          style={{
+                            left: `${rect.x * 100}%`,
+                            top: `${rect.y * 100}%`,
+                            width: `${rect.width * 100}%`,
+                            height: `${rect.height * 100}%`,
+                            backgroundColor: `${highlight.color}66`,
+                          }}
+                          title={
+                            isInteractive
+                              ? `Remove highlight: ${highlight.text_content || "Saved highlight"}`
+                              : highlight.text_content || "Saved highlight"
                           }
-                          setSelectedHighlightId(highlight.id);
-                          void onDeleteHighlight(highlight.id);
-                        }}
-                        onFocus={() => {
-                          if (!highlightMode) {
-                            setSelectedHighlightId(highlight.id);
-                          }
-                        }}
-                        onBlur={() => setSelectedHighlightId(null)}
-                        onContextMenu={(e) => {
-                          if (!onDeleteHighlight || highlightMode) {
-                            return;
-                          }
-                          e.preventDefault();
-                          setContextMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            highlightId: highlight.id,
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Delete" &&
-                            onDeleteHighlight &&
-                            !highlightMode
-                          ) {
-                            void onDeleteHighlight(highlight.id);
-                          }
-                        }}
-                      />
-                    ))
+                          aria-label={`Remove highlight: ${highlight.text_content || "Saved highlight"}`}
+                          onClick={() => {
+                            if (!isInteractive) return;
+                            setSelectedHighlightId(
+                              selectedHighlightId === highlight.id ? null : highlight.id
+                            );
+                          }}
+                          onContextMenu={(e) => {
+                            if (!isInteractive) return;
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, highlightId: highlight.id });
+                          }}
+                          onKeyDown={(e) => {
+                            if (!isInteractive) return;
+                            if (e.key === "Delete" || e.key === "Backspace") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void onDeleteHighlight!(highlight.id);
+                              setSelectedHighlightId(null);
+                            }
+                          }}
+                        />
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -292,7 +290,18 @@ export function PdfReader({
           })}
         </Document>
       </div>
+
+      {contextMenu && onDeleteHighlight &&
+        createPortal(
+          <HighlightContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            highlightId={contextMenu.highlightId}
+            onRemove={(id) => { void onDeleteHighlight(id); }}
+            onClose={() => setContextMenu(null)}
+          />,
+          document.body
+        )}
     </div>
-    </>
   );
 }

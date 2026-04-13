@@ -1,28 +1,51 @@
-import { useCallback, useState } from "react";
-import { removeHighlight } from "@/lib/highlights";
+import { useState, useCallback } from "react";
+import { deleteHighlightById, fetchHighlights } from "@/lib/highlights.js";
 
-export interface HighlightBase {
+export interface HighlightRecord {
   id: string;
+  document_id: string;
+  page_number: number;
+  color: string;
+  text_content: string | null;
+  rects: unknown;
+  created_at: string;
 }
 
-/**
- * Hook for managing a list of highlights with delete support.
- */
-export function useHighlights<T extends HighlightBase>(initial: T[] = []) {
-  const [highlights, setHighlights] = useState<T[]>(initial);
-  const [removeError, setRemoveError] = useState<string | null>(null);
+export function useHighlights(docId: string) {
+  const [highlights, setHighlights] = useState<HighlightRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const deleteHighlight = useCallback(async (id: string) => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      await removeHighlight(id);
-      setHighlights((prev) => prev.filter((h) => h.id !== id));
-      setRemoveError(null);
+      const data = await fetchHighlights(docId);
+      setHighlights(data as HighlightRecord[]);
     } catch (err) {
-      setRemoveError(
-        err instanceof Error ? err.message : "Failed to remove highlight"
+      setError(
+        err instanceof Error ? err.message : "Failed to load highlights"
       );
+    } finally {
+      setLoading(false);
+    }
+  }, [docId]);
+
+  const removeHighlight = useCallback(async (id: string) => {
+    try {
+      await deleteHighlightById(id);
+      setHighlights((prev) => prev.filter((h) => h.id !== id));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete highlight"
+      );
+      throw err;
     }
   }, []);
 
-  return { highlights, setHighlights, deleteHighlight, removeError };
+  const addHighlight = useCallback((highlight: HighlightRecord) => {
+    setHighlights((prev) => [...prev, highlight]);
+  }, []);
+
+  return { highlights, loading, error, load, removeHighlight, addHighlight };
 }

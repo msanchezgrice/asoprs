@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,8 +17,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  if (!id) {
-    return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!UUID_RE.test(id)) {
+    return NextResponse.json({ error: "Invalid highlight id" }, { status: 400 });
   }
 
   const { error } = await supabase

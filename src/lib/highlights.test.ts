@@ -44,7 +44,7 @@ describe("removeHighlight", () => {
     });
 
     await expect(removeHighlight("hl-1")).rejects.toThrow(
-      "Failed to remove highlight"
+      "Failed to delete highlight"
     );
   });
 
@@ -57,7 +57,7 @@ describe("removeHighlight", () => {
     });
 
     await expect(removeHighlight("hl-1")).rejects.toThrow(
-      "Failed to remove highlight"
+      "Failed to delete highlight"
     );
   });
 });

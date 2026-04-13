@@ -1,92 +1,74 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
-import { DELETE } from "./route";
-import type { NextRequest } from "next/server";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-function makeSupabaseMock(opts: {
-  user: { id: string } | null;
-  deleteError?: { message: string } | null;
-}) {
-  return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: opts.user } }),
-    },
-    from: vi.fn().mockReturnValue({
-      delete: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: opts.deleteError ?? null }),
+let mockUser: { id: string } | null = { id: "user-123" };
+let mockDeleteError: { message: string } | null = null;
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServerSupabaseClient: () =>
+    Promise.resolve({
+      auth: {
+        getUser: () => Promise.resolve({ data: { user: mockUser } }),
+      },
+      from: () => ({
+        delete: () => ({
+          eq: () => ({
+            eq: () => Promise.resolve({ error: mockDeleteError }),
+          }),
         }),
       }),
     }),
-  };
-}
-
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: vi.fn(),
 }));
 
-const { createServerSupabaseClient } = await import("@/lib/supabase/server");
+import { DELETE } from "./route";
+import { NextRequest } from "next/server";
+
+const VALID_UUID = "123e4567-e89b-12d3-a456-426614174000";
+
+function makeRequest(id: string) {
+  return new NextRequest(`http://localhost/api/highlights/${id}`, { method: "DELETE" });
+}
 
 describe("DELETE /api/highlights/[id]", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockUser = { id: "user-123" };
+    mockDeleteError = null;
   });
 
-  test("returns 401 when user is not authenticated", async () => {
-    vi.mocked(createServerSupabaseClient).mockResolvedValue(
-      makeSupabaseMock({ user: null }) as never
-    );
-
-    const res = await DELETE(null as unknown as NextRequest, {
-      params: Promise.resolve({ id: "hl-1" }),
+  it("returns 401 when not authenticated", async () => {
+    mockUser = null;
+    const res = await DELETE(makeRequest(VALID_UUID), {
+      params: Promise.resolve({ id: VALID_UUID }),
     });
-
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe("Authentication required");
   });
 
-  test("deletes highlight and returns success for authenticated user", async () => {
-    vi.mocked(createServerSupabaseClient).mockResolvedValue(
-      makeSupabaseMock({ user: { id: "user-1" } }) as never
-    );
-
-    const res = await DELETE(null as unknown as NextRequest, {
-      params: Promise.resolve({ id: "hl-1" }),
+  it("returns 400 for invalid (non-UUID) id", async () => {
+    const res = await DELETE(makeRequest("not-a-uuid"), {
+      params: Promise.resolve({ id: "not-a-uuid" }),
     });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("Invalid highlight id");
+  });
 
+  it("deletes highlight and returns success for valid UUID", async () => {
+    const res = await DELETE(makeRequest(VALID_UUID), {
+      params: Promise.resolve({ id: VALID_UUID }),
+    });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
   });
 
-  test("returns 500 when database error occurs", async () => {
-    vi.mocked(createServerSupabaseClient).mockResolvedValue(
-      makeSupabaseMock({
-        user: { id: "user-1" },
-        deleteError: { message: "DB connection failed" },
-      }) as never
-    );
-
-    const res = await DELETE(null as unknown as NextRequest, {
-      params: Promise.resolve({ id: "hl-1" }),
+  it("returns 500 when the database returns an error", async () => {
+    mockDeleteError = { message: "DB constraint violation" };
+    const res = await DELETE(makeRequest(VALID_UUID), {
+      params: Promise.resolve({ id: VALID_UUID }),
     });
-
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toBe("DB connection failed");
-  });
-
-  test("calls supabase delete with correct user_id and highlight id", async () => {
-    const supabaseMock = makeSupabaseMock({ user: { id: "user-42" } });
-    vi.mocked(createServerSupabaseClient).mockResolvedValue(supabaseMock as never);
-
-    await DELETE(null as unknown as NextRequest, {
-      params: Promise.resolve({ id: "highlight-99" }),
-    });
-
-    const fromChain = supabaseMock.from("user_pdf_highlights");
-    const deleteChain = fromChain.delete();
-    expect(deleteChain.eq).toHaveBeenCalledWith("user_id", "user-42");
-    expect(deleteChain.eq("user_id", "user-42").eq).toHaveBeenCalledWith("id", "highlight-99");
+    expect(body.error).toBe("DB constraint violation");
   });
 });

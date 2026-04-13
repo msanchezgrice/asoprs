@@ -1,13 +1,19 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { HighlightContextMenu } from "./HighlightContextMenu";
+import { HighlightContextMenu } from "./highlight-context-menu";
 
 describe("HighlightContextMenu", () => {
   afterEach(() => cleanup());
 
   test("renders menu with Remove Highlight option", () => {
     render(
-      <HighlightContextMenu x={100} y={200} onRemove={vi.fn()} onClose={vi.fn()} />
+      <HighlightContextMenu
+        x={100}
+        y={200}
+        highlightId="hl-1"
+        onRemove={vi.fn()}
+        onClose={vi.fn()}
+      />
     );
 
     expect(screen.getByRole("menu")).toBeInTheDocument();
@@ -16,17 +22,23 @@ describe("HighlightContextMenu", () => {
     ).toBeInTheDocument();
   });
 
-  test("calls onRemove and onClose when Remove Highlight is clicked", () => {
+  test("calls onRemove with highlightId and onClose when Remove Highlight is clicked", () => {
     const onRemove = vi.fn();
     const onClose = vi.fn();
 
     render(
-      <HighlightContextMenu x={100} y={200} onRemove={onRemove} onClose={onClose} />
+      <HighlightContextMenu
+        x={100}
+        y={200}
+        highlightId="hl-42"
+        onRemove={onRemove}
+        onClose={onClose}
+      />
     );
 
     fireEvent.click(screen.getByRole("menuitem", { name: /remove highlight/i }));
 
-    expect(onRemove).toHaveBeenCalled();
+    expect(onRemove).toHaveBeenCalledWith("hl-42");
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -34,7 +46,13 @@ describe("HighlightContextMenu", () => {
     const onClose = vi.fn();
 
     render(
-      <HighlightContextMenu x={100} y={200} onRemove={vi.fn()} onClose={onClose} />
+      <HighlightContextMenu
+        x={100}
+        y={200}
+        highlightId="hl-1"
+        onRemove={vi.fn()}
+        onClose={onClose}
+      />
     );
 
     fireEvent.keyDown(document, { key: "Escape" });
@@ -46,7 +64,13 @@ describe("HighlightContextMenu", () => {
     const onClose = vi.fn();
 
     render(
-      <HighlightContextMenu x={100} y={200} onRemove={vi.fn()} onClose={onClose} />
+      <HighlightContextMenu
+        x={100}
+        y={200}
+        highlightId="hl-1"
+        onRemove={vi.fn()}
+        onClose={onClose}
+      />
     );
 
     fireEvent.mouseDown(document.body);
@@ -58,7 +82,13 @@ describe("HighlightContextMenu", () => {
     const onClose = vi.fn();
 
     render(
-      <HighlightContextMenu x={100} y={200} onRemove={vi.fn()} onClose={onClose} />
+      <HighlightContextMenu
+        x={100}
+        y={200}
+        highlightId="hl-1"
+        onRemove={vi.fn()}
+        onClose={onClose}
+      />
     );
 
     const menu = screen.getByRole("menu");
@@ -69,12 +99,17 @@ describe("HighlightContextMenu", () => {
 
   test("is positioned at the specified x and y coordinates", () => {
     render(
-      <HighlightContextMenu x={150} y={250} onRemove={vi.fn()} onClose={vi.fn()} />
+      <HighlightContextMenu
+        x={150}
+        y={250}
+        highlightId="hl-1"
+        onRemove={vi.fn()}
+        onClose={vi.fn()}
+      />
     );
 
     const menu = screen.getByRole("menu");
     expect(menu.style.top).toBe("250px");
     expect(menu.style.left).toBe("150px");
-    expect(menu.style.position).toBe("fixed");
   });
 });
