@@ -472,4 +472,41 @@ describe("PdfReader", () => {
 
     expect(onDeleteHighlight).not.toHaveBeenCalled();
   });
+
+  test("does not crash when highlight removal throws an error", async () => {
+    const onDeleteHighlight = vi.fn().mockRejectedValue(new Error("Network error"));
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const hlBtn = await screen.findByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.contextMenu(hlBtn);
+
+    const removeMenuItem = screen.getByRole("menuitem", { name: /remove highlight/i });
+
+    // Should not throw/crash even when the handler rejects
+    await expect(async () => {
+      fireEvent.click(removeMenuItem);
+      await waitFor(() => expect(onDeleteHighlight).toHaveBeenCalled());
+    }).not.toThrow();
+  });
 });

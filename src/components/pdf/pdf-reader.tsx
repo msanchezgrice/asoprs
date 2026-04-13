@@ -297,7 +297,15 @@ export function PdfReader({
             x={contextMenu.x}
             y={contextMenu.y}
             highlightId={contextMenu.highlightId}
-            onRemove={(id) => { void onDeleteHighlight(id); }}
+            onRemove={(id) => {
+              void (async () => {
+                try {
+                  await onDeleteHighlight(id);
+                } catch {
+                  // Removal failed; highlight stays visible
+                }
+              })();
+            }}
             onClose={() => setContextMenu(null)}
           />,
           document.body

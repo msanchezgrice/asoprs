@@ -51,7 +51,7 @@ export function HighlightContextMenu({
       <button
         role="menuitem"
         type="button"
-        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-coral hover:bg-coral/5"
+        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-coral transition-colors hover:bg-coral/5"
         onClick={() => {
           onRemove(highlightId);
           onClose();
