@@ -274,6 +274,64 @@ describe("OpenAI oral exam turn evaluator", () => {
     expect(result.examinerMessage).not.toContain("Case source");
   });
 
+  it("keeps local accepted evidence when the model returns sparse answer mapping", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          stage: "history",
+          examinerMessage:
+            "History: The child has painless progressive proptosis.\n\nExamination: There is marked proptosis.",
+          score: {
+            diagnosis: 0,
+            differential: 0,
+            workup: 0,
+            management: 0,
+            total: 0,
+          },
+          sourceDisclosureAllowed: false,
+          answerEvaluation: {
+            candidateIntent: "ask_history",
+            nextAction: "reveal_history",
+            requestedReveal: "history",
+            validity: "valid",
+            accepted: {
+              diagnosis: [],
+              differential: [],
+              imageObservations: [],
+              workup: [],
+              management: [],
+              counseling: [],
+              surveillance: [],
+            },
+            missing: [],
+            rationale: "The candidate earned history.",
+          },
+          feedback: "The candidate earned history.",
+        }),
+      }),
+    });
+
+    const result = await createOpenAIOralExamTurn({
+      apiKey: "sk-test",
+      oralCaseId: "orbital-rhabdomyosarcoma",
+      state: getInitialOralExamState("orbital-rhabdomyosarcoma"),
+      userText:
+        "I see proptosis and eyelid edema. My differential includes orbital cellulitis and lymphoma. What is the history and exam?",
+      transcript: [],
+      fetchImpl,
+    });
+
+    expect(result.state.stage).toBe("history");
+    expect(result.answerEvaluation.accepted.imageObservations).toContain(
+      "proptosis"
+    );
+    expect(result.answerEvaluation.accepted.differential).toEqual(
+      expect.arrayContaining(["orbital cellulitis", "lymphoma"])
+    );
+    expect(result.score.total).toBeGreaterThan(0);
+  });
+
   it("throws a useful error when OpenAI rejects the evaluator request", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: false,

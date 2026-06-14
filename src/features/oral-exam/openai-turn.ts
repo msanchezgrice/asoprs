@@ -347,17 +347,143 @@ function redactSpoilers(text: string, oralCase: ReturnType<typeof getCaseById>) 
   );
 }
 
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function mergeAcceptedAnswers(
+  modelAccepted: OralExamAnswerEvaluation["accepted"],
+  localAccepted: OralExamAnswerEvaluation["accepted"]
+): OralExamAnswerEvaluation["accepted"] {
+  return {
+    diagnosis: uniqueValues([
+      ...modelAccepted.diagnosis,
+      ...localAccepted.diagnosis,
+    ]),
+    differential: uniqueValues([
+      ...modelAccepted.differential,
+      ...localAccepted.differential,
+    ]),
+    imageObservations: uniqueValues([
+      ...modelAccepted.imageObservations,
+      ...localAccepted.imageObservations,
+    ]),
+    workup: uniqueValues([...modelAccepted.workup, ...localAccepted.workup]),
+    management: uniqueValues([
+      ...modelAccepted.management,
+      ...localAccepted.management,
+    ]),
+    counseling: uniqueValues([
+      ...modelAccepted.counseling,
+      ...localAccepted.counseling,
+    ]),
+    surveillance: uniqueValues([
+      ...modelAccepted.surveillance,
+      ...localAccepted.surveillance,
+    ]),
+  };
+}
+
+function mergeAnswerEvaluation(
+  modelEvaluation: OralExamAnswerEvaluation,
+  localEvaluation: OralExamAnswerEvaluation
+): OralExamAnswerEvaluation {
+  const accepted = mergeAcceptedAnswers(
+    modelEvaluation.accepted,
+    localEvaluation.accepted
+  );
+
+  if (
+    localEvaluation.candidateIntent === "request_answer" ||
+    localEvaluation.validity === "surrender"
+  ) {
+    return {
+      ...modelEvaluation,
+      candidateIntent: "request_answer",
+      nextAction: "coach_without_disclosing",
+      requestedReveal: "answer",
+      validity: "surrender",
+      accepted,
+      missing: uniqueValues([
+        ...localEvaluation.missing,
+        ...modelEvaluation.missing,
+      ]),
+      rationale: localEvaluation.rationale,
+    };
+  }
+
+  return {
+    ...modelEvaluation,
+    accepted,
+    missing: modelEvaluation.missing.length
+      ? modelEvaluation.missing
+      : localEvaluation.missing,
+  };
+}
+
+function scoreFromEvaluation(
+  evaluation: OralExamAnswerEvaluation
+): OralExamScore {
+  const diagnosis = evaluation.accepted.diagnosis.length > 0 ? 2 : 0;
+  const differential = Math.min(4, evaluation.accepted.differential.length);
+  const workup = Math.min(4, evaluation.accepted.workup.length);
+  const management = Math.min(
+    4,
+    evaluation.accepted.management.length +
+      Math.min(1, evaluation.accepted.counseling.length) +
+      Math.min(1, evaluation.accepted.surveillance.length)
+  );
+
+  return {
+    diagnosis,
+    differential,
+    workup,
+    management,
+    total: diagnosis + differential + workup + management,
+  };
+}
+
+function mergeScores(
+  modelScore: OralExamScore,
+  evidenceScore: OralExamScore
+): OralExamScore {
+  const diagnosis = Math.max(modelScore.diagnosis, evidenceScore.diagnosis);
+  const differential = Math.max(
+    modelScore.differential,
+    evidenceScore.differential
+  );
+  const workup = Math.max(modelScore.workup, evidenceScore.workup);
+  const management = Math.max(modelScore.management, evidenceScore.management);
+
+  return {
+    diagnosis,
+    differential,
+    workup,
+    management,
+    total: diagnosis + differential + workup + management,
+  };
+}
+
 function applyDecision({
   oralCaseId,
   state,
   decision,
+  localAnswerEvaluation,
 }: {
   oralCaseId: string;
   state: OralExamState;
   decision: ModelTurnDecision;
+  localAnswerEvaluation: OralExamAnswerEvaluation;
 }): OralExamTurnResult {
   const oralCase = getCaseById(oralCaseId);
-  const stage = stageForModelAction(state.stage, decision);
+  const answerEvaluation = mergeAnswerEvaluation(
+    decision.answerEvaluation,
+    localAnswerEvaluation
+  );
+  const stage = stageForModelAction(state.stage, {
+    ...decision,
+    answerEvaluation,
+  });
   const revealedFigureIds = getRevealedFigureIdsForStage(
     oralCase,
     stage,
@@ -381,8 +507,10 @@ function applyDecision({
     },
     examinerMessage,
     revealedFigureIds,
-    score: clampScore(decision.score),
-    answerEvaluation: decision.answerEvaluation,
+    score: clampScore(
+      mergeScores(decision.score, scoreFromEvaluation(answerEvaluation))
+    ),
+    answerEvaluation,
   };
 }
 
@@ -418,5 +546,6 @@ export async function createOpenAIOralExamTurn({
     oralCaseId: input.oralCaseId,
     state: input.state,
     decision: JSON.parse(text) as ModelTurnDecision,
+    localAnswerEvaluation: buildOralExamAnswerEvaluation(input),
   });
 }
