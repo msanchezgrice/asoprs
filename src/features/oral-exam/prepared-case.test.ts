@@ -20,6 +20,10 @@ describe("prepared oral exam cases", () => {
       expect(prepared.acceptableAnswers.leadingDiagnoses.length).toBeGreaterThan(0);
       expect(prepared.acceptableAnswers.differential.length).toBeGreaterThan(0);
       expect(prepared.stageGates.visual.required.length).toBeGreaterThan(0);
+      expect(prepared.responseActions.length).toBeGreaterThan(0);
+      expect(JSON.stringify(prepared.responseActions)).toContain(
+        "coach_without_disclosing"
+      );
       expect(JSON.stringify(prepared)).not.toContain("No examiner script");
     }
   });

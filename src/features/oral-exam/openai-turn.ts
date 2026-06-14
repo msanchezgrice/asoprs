@@ -1,6 +1,8 @@
 import {
+  buildOralExamAnswerEvaluation,
   getCaseById,
   getRevealedFigureIdsForStage,
+  type OralExamAnswerEvaluation,
   type OralExamScore,
   type OralExamStage,
   type OralExamState,
@@ -36,8 +38,82 @@ type ModelTurnDecision = {
   examinerMessage: string;
   score: OralExamScore;
   sourceDisclosureAllowed: boolean;
+  answerEvaluation: OralExamAnswerEvaluation;
   feedback: string;
 };
+
+const ANSWER_EVALUATION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "candidateIntent",
+    "nextAction",
+    "requestedReveal",
+    "validity",
+    "accepted",
+    "missing",
+    "rationale",
+  ],
+  properties: {
+    candidateIntent: {
+      type: "string",
+      enum: [
+        "answer_attempt",
+        "ask_history",
+        "ask_workup",
+        "ask_management",
+        "clarify_image",
+        "request_answer",
+        "off_track",
+      ],
+    },
+    nextAction: {
+      type: "string",
+      enum: [
+        "prompt_for_answer",
+        "prompt_for_next_step",
+        "reveal_history",
+        "reveal_workup",
+        "prompt_management",
+        "complete_case",
+        "clarify_image",
+        "coach_without_disclosing",
+      ],
+    },
+    requestedReveal: {
+      type: "string",
+      enum: ["none", "history", "workup", "management", "answer"],
+    },
+    validity: {
+      type: "string",
+      enum: ["valid", "partial", "invalid", "surrender"],
+    },
+    accepted: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "diagnosis",
+        "differential",
+        "imageObservations",
+        "workup",
+        "management",
+        "counseling",
+        "surveillance",
+      ],
+      properties: {
+        diagnosis: { type: "array", items: { type: "string" } },
+        differential: { type: "array", items: { type: "string" } },
+        imageObservations: { type: "array", items: { type: "string" } },
+        workup: { type: "array", items: { type: "string" } },
+        management: { type: "array", items: { type: "string" } },
+        counseling: { type: "array", items: { type: "string" } },
+        surveillance: { type: "array", items: { type: "string" } },
+      },
+    },
+    missing: { type: "array", items: { type: "string" } },
+    rationale: { type: "string" },
+  },
+} as const;
 
 const TURN_DECISION_SCHEMA = {
   type: "object",
@@ -47,6 +123,7 @@ const TURN_DECISION_SCHEMA = {
     "examinerMessage",
     "score",
     "sourceDisclosureAllowed",
+    "answerEvaluation",
     "feedback",
   ],
   properties: {
@@ -75,6 +152,7 @@ const TURN_DECISION_SCHEMA = {
       type: "boolean",
       description: "Must be true only when stage is complete.",
     },
+    answerEvaluation: ANSWER_EVALUATION_SCHEMA,
     feedback: {
       type: "string",
       description:
@@ -89,6 +167,11 @@ function buildEvaluatorInstructions() {
     "The app provides a preparedCase packet; use it as your canonical case file.",
     "Use preparedCase.visibleImageFindings as the visible photograph and exam-material context.",
     "Use preparedCase.examinerScripts for scripted reveals, preparedCase.acceptableAnswers as the grading range, and preparedCase.stageGates for advancement decisions.",
+    "Before choosing a stage, map candidateAnswer into answerEvaluation: candidate intent, accepted answer evidence, missing elements, requested reveal, validity, and nextAction.",
+    "Compare the candidate's answer against preparedCase.acceptableAnswers and the provided localAnswerEvaluation; improve the mapping if the local evidence missed a valid synonym.",
+    "Do not treat a generic request for history, workup, or management as a correct answer; it is a requested reveal only when the current stage gates support it.",
+    "If the candidate says they do not know or asks you to give/reveal the answer, set answerEvaluation.validity to surrender, requestedReveal to answer, nextAction to coach_without_disclosing, keep the current stage, and do not disclose the diagnosis.",
+    "Only set nextAction to complete_case when the candidate has supplied final diagnosis, management, counseling, and surveillance.",
     "Do not say you cannot see the image, cannot access exam materials, or cannot continue without them.",
     "Listen to the candidate's actual answer. Do not just advance because a keyword appears.",
     "Let the candidate work through observation, leading diagnosis, differential, workup, management, counseling, and surveillance.",
@@ -110,6 +193,11 @@ export function buildOpenAIOralExamTurnRequest({
 }: OpenAIOralExamTurnInput) {
   const oralCase = getCaseById(oralCaseId);
   const preparedCase = buildPreparedOralExamCase(oralCaseId, state);
+  const localAnswerEvaluation = buildOralExamAnswerEvaluation({
+    oralCaseId,
+    state,
+    userText,
+  });
 
   return {
     model,
@@ -126,6 +214,7 @@ export function buildOpenAIOralExamTurnRequest({
           candidateAnswer: userText,
           recentTranscript: transcript.slice(-8),
           preparedCase,
+          localAnswerEvaluation,
           caseData: {
             id: oralCase.id,
             difficulty: oralCase.difficulty,
@@ -208,6 +297,56 @@ function clampScore(score: OralExamScore): OralExamScore {
   };
 }
 
+function stageForModelAction(
+  currentStage: OralExamStage,
+  decision: ModelTurnDecision
+): OralExamStage {
+  if (currentStage === "complete") return "complete";
+
+  switch (decision.answerEvaluation.nextAction) {
+    case "reveal_history":
+      return "history";
+    case "reveal_workup":
+      return "workup";
+    case "prompt_management":
+      return "management";
+    case "complete_case":
+      return decision.answerEvaluation.validity === "valid"
+        ? "complete"
+        : currentStage;
+    case "coach_without_disclosing":
+    case "clarify_image":
+    case "prompt_for_answer":
+    case "prompt_for_next_step":
+      return currentStage;
+    default:
+      return decision.stage;
+  }
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function redactSpoilers(text: string, oralCase: ReturnType<typeof getCaseById>) {
+  const spoilerTerms = [
+    oralCase.sourceDisclosure,
+    oralCase.sourceKind,
+    oralCase.sourceTopic,
+    oralCase.diagnosis,
+    ...oralCase.acceptableDiagnoses,
+  ]
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  return spoilerTerms.reduce(
+    (current, term) =>
+      current.replace(new RegExp(escapeRegExp(term), "gi"), "[withheld]"),
+    text
+  );
+}
+
 function applyDecision({
   oralCaseId,
   state,
@@ -218,10 +357,7 @@ function applyDecision({
   decision: ModelTurnDecision;
 }): OralExamTurnResult {
   const oralCase = getCaseById(oralCaseId);
-  const stage =
-    decision.sourceDisclosureAllowed && decision.stage !== "complete"
-      ? "complete"
-      : decision.stage;
+  const stage = stageForModelAction(state.stage, decision);
   const revealedFigureIds = getRevealedFigureIdsForStage(
     oralCase,
     stage,
@@ -230,10 +366,10 @@ function applyDecision({
 
   let examinerMessage = decision.examinerMessage.trim();
   if (stage !== "complete") {
-    examinerMessage = examinerMessage
-      .replaceAll(oralCase.sourceDisclosure, "")
-      .replace(/Case source:[\s\S]*$/i, "")
-      .trim();
+    examinerMessage = redactSpoilers(
+      examinerMessage.replace(/Case source:[\s\S]*$/i, ""),
+      oralCase
+    ).trim();
   }
 
   return {
@@ -246,6 +382,7 @@ function applyDecision({
     examinerMessage,
     revealedFigureIds,
     score: clampScore(decision.score),
+    answerEvaluation: decision.answerEvaluation,
   };
 }
 

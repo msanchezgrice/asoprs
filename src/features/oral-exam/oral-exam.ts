@@ -48,11 +48,62 @@ export interface OralExamScore {
   total: number;
 }
 
+export type OralExamCandidateIntent =
+  | "answer_attempt"
+  | "ask_history"
+  | "ask_workup"
+  | "ask_management"
+  | "clarify_image"
+  | "request_answer"
+  | "off_track";
+
+export type OralExamNextAction =
+  | "prompt_for_answer"
+  | "prompt_for_next_step"
+  | "reveal_history"
+  | "reveal_workup"
+  | "prompt_management"
+  | "complete_case"
+  | "clarify_image"
+  | "coach_without_disclosing";
+
+export type OralExamRequestedReveal =
+  | "none"
+  | "history"
+  | "workup"
+  | "management"
+  | "answer";
+
+export type OralExamAnswerValidity =
+  | "valid"
+  | "partial"
+  | "invalid"
+  | "surrender";
+
+export interface OralExamAnswerEvaluation {
+  candidateIntent: OralExamCandidateIntent;
+  nextAction: OralExamNextAction;
+  requestedReveal: OralExamRequestedReveal;
+  validity: OralExamAnswerValidity;
+  accepted: {
+    diagnosis: string[];
+    differential: string[];
+    imageObservations: string[];
+    workup: string[];
+    management: string[];
+    counseling: string[];
+    surveillance: string[];
+  };
+  missing: string[];
+  rationale: string;
+}
+
 export interface OralExamTurnResult {
   state: OralExamState;
   examinerMessage: string;
   revealedFigureIds: string[];
   score: OralExamScore;
+  answerEvaluation: OralExamAnswerEvaluation;
 }
 
 export const ORAL_EXAM_CASES: OralExamCase[] = [
@@ -446,43 +497,6 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function mentionsAny(text: string, terms: string[]) {
-  return terms.some((term) => normalize(text).includes(normalize(term)));
-}
-
-function nextStage(currentStage: OralExamStage, userText: string): OralExamStage {
-  if (currentStage === "complete") return "complete";
-
-  const text = normalize(userText);
-  const asksWorkup =
-    /\b(workup|imaging|image|ct|mri|scan|biopsy|pathology|lab|test|diagnostic)\b/.test(
-      text
-    );
-  const asksManagement =
-    /\b(treat|treatment|manage|management|surgery|chemo|radiation|counsel|surveillance|follow)\b/.test(
-      text
-    );
-  const asksHistory = /\b(history|exam|examination|symptom|presentation|motility|vision)\b/.test(
-    text
-  );
-
-  if (asksManagement && currentStage !== "visual" && currentStage !== "history") {
-    return "complete";
-  }
-
-  if (asksWorkup && currentStage !== "visual") {
-    return "workup";
-  }
-
-  if (asksHistory || currentStage === "visual") {
-    return "history";
-  }
-
-  if (currentStage === "history") return "workup";
-  if (currentStage === "workup") return "management";
-  return "complete";
-}
-
 export function getRevealedFigureIdsForStage(
   oralCase: OralExamCase,
   stage: OralExamStage,
@@ -502,12 +516,54 @@ export function getRevealedFigureIdsForStage(
   return Array.from(figureIds);
 }
 
+const VISUAL_OBSERVATION_TERMS = [
+  "anisocoria",
+  "blepharitis",
+  "chemosis",
+  "conjunctival",
+  "edema",
+  "eyelid",
+  "globe",
+  "inflammation",
+  "lacrimal",
+  "lesion",
+  "mass",
+  "miosis",
+  "motility",
+  "plaque",
+  "proptosis",
+  "ptosis",
+  "salmon",
+  "swelling",
+  "vascular",
+  "yellow",
+];
+
+function matchedTerms(userText: string, terms: string[]) {
+  const normalized = normalize(userText);
+  return Array.from(
+    new Set(
+      terms.filter((term) => normalized.includes(normalize(term))).filter(Boolean)
+    )
+  );
+}
+
+function keywordCandidates(values: string[]) {
+  return Array.from(
+    new Set(
+      values.flatMap((value) =>
+        normalize(value)
+          .split(" ")
+          .filter((part) => part.length > 4)
+      )
+    )
+  );
+}
+
 function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
-  const diagnosis = mentionsAny(userText, oralCase.acceptableDiagnoses) ? 2 : 0;
-  const differential = oralCase.differential.filter((item) =>
-    normalize(userText).includes(normalize(item))
-  ).length;
-  const workup = [
+  const acceptedDiagnoses = matchedTerms(userText, oralCase.acceptableDiagnoses);
+  const acceptedDifferential = matchedTerms(userText, oralCase.differential);
+  const acceptedWorkup = matchedTerms(userText, [
     "imaging",
     "ct",
     "mri",
@@ -516,8 +572,9 @@ function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
     "staging",
     "visual acuity",
     "motility",
-  ].filter((item) => normalize(userText).includes(item)).length;
-  const management = [
+    ...keywordCandidates([oralCase.workup]),
+  ]);
+  const acceptedManagement = matchedTerms(userText, [
     "treat",
     "management",
     "surgery",
@@ -528,15 +585,322 @@ function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
     "counseling",
     "surveillance",
     "follow",
-  ].filter((item) => normalize(userText).includes(item)).length;
+    ...keywordCandidates([oralCase.management]),
+  ]);
 
   return {
-    diagnosis,
-    differential,
-    workup,
-    management,
-    total: diagnosis + differential + workup + management,
+    diagnosis: acceptedDiagnoses.length > 0 ? 2 : 0,
+    differential: Math.min(4, acceptedDifferential.length),
+    workup: Math.min(4, acceptedWorkup.length),
+    management: Math.min(4, acceptedManagement.length),
+    total:
+      (acceptedDiagnoses.length > 0 ? 2 : 0) +
+      Math.min(4, acceptedDifferential.length) +
+      Math.min(4, acceptedWorkup.length) +
+      Math.min(4, acceptedManagement.length),
   };
+}
+
+function classifyIntent(userText: string): OralExamCandidateIntent {
+  const text = normalize(userText);
+  if (
+    /\b(i do not know|i dont know|no idea|unsure|give me the answer|tell me the answer|show me the answer|reveal the answer|what is the answer|what is the diagnosis)\b/.test(
+      text
+    )
+  ) {
+    return "request_answer";
+  }
+
+  if (/\b(what image|what photograph|what photo|what am i looking at|describe the image)\b/.test(text)) {
+    return "clarify_image";
+  }
+
+  if (/\b(treat|treatment|manage|management|surgery|chemo|radiation|counsel|surveillance|follow)\b/.test(text)) {
+    return "ask_management";
+  }
+
+  if (/\b(workup|imaging|ct|mri|scan|biopsy|pathology|lab|test|diagnostic|staging)\b/.test(text)) {
+    return "ask_workup";
+  }
+
+  if (/\b(history|exam|examination|symptom|presentation|motility|vision|onset|pain)\b/.test(text)) {
+    return "ask_history";
+  }
+
+  if (text.length < 4) return "off_track";
+  return "answer_attempt";
+}
+
+function hasDiagnosticFramework(evaluation: Pick<OralExamAnswerEvaluation, "accepted">) {
+  return (
+    evaluation.accepted.diagnosis.length > 0 ||
+    evaluation.accepted.differential.length > 0
+  );
+}
+
+function hasManagementClosure(evaluation: Pick<OralExamAnswerEvaluation, "accepted">) {
+  return (
+    evaluation.accepted.diagnosis.length > 0 &&
+    evaluation.accepted.management.length > 0 &&
+    (evaluation.accepted.counseling.length > 0 ||
+      evaluation.accepted.surveillance.length > 0)
+  );
+}
+
+function inferNextAction({
+  state,
+  intent,
+  accepted,
+}: {
+  state: OralExamState;
+  intent: OralExamCandidateIntent;
+  accepted: OralExamAnswerEvaluation["accepted"];
+}): Pick<OralExamAnswerEvaluation, "nextAction" | "requestedReveal" | "validity" | "missing" | "rationale"> {
+  const evidence = { accepted };
+  const hasVisualDescription = accepted.imageObservations.length > 0;
+  const hasFramework = hasDiagnosticFramework(evidence);
+
+  if (state.stage === "complete") {
+    return {
+      nextAction: "complete_case",
+      requestedReveal: "answer",
+      validity: "valid",
+      missing: [],
+      rationale: "The case is already complete.",
+    };
+  }
+
+  if (intent === "request_answer") {
+    return {
+      nextAction: "coach_without_disclosing",
+      requestedReveal: "answer",
+      validity: "surrender",
+      missing: [
+        "visible observations",
+        "leading diagnosis or category",
+        "differential diagnosis",
+      ],
+      rationale:
+        "The candidate requested the answer instead of attempting the oral-board task.",
+    };
+  }
+
+  if (intent === "clarify_image") {
+    return {
+      nextAction: "clarify_image",
+      requestedReveal: "none",
+      validity: "partial",
+      missing: ["candidate image description", "diagnostic framework"],
+      rationale:
+        "The candidate asked for help identifying the displayed photograph.",
+    };
+  }
+
+  if (state.stage === "visual") {
+    if (intent === "ask_history" && (hasVisualDescription || hasFramework)) {
+      return {
+        nextAction: "reveal_history",
+        requestedReveal: "history",
+        validity: hasVisualDescription && hasFramework ? "valid" : "partial",
+        missing: hasFramework ? [] : ["leading diagnosis or differential"],
+        rationale:
+          "The candidate gave enough initial visual or diagnostic framing to receive history and examination.",
+      };
+    }
+
+    if (hasVisualDescription && hasFramework) {
+      return {
+        nextAction: "prompt_for_next_step",
+        requestedReveal: "none",
+        validity: "valid",
+        missing: ["request for history/examination or next diagnostic step"],
+        rationale:
+          "The candidate supplied a reasonable image description and diagnostic framework but has not requested the next case data.",
+      };
+    }
+
+    return {
+      nextAction: "prompt_for_answer",
+      requestedReveal: "none",
+      validity: hasVisualDescription || hasFramework ? "partial" : "invalid",
+      missing: [
+        ...(hasVisualDescription ? [] : ["visible abnormality description"]),
+        ...(hasFramework ? [] : ["leading diagnosis or differential"]),
+      ],
+      rationale:
+        "The candidate has not yet earned serial reveal from the starting photograph.",
+    };
+  }
+
+  if (state.stage === "history") {
+    if (intent === "ask_workup" || accepted.workup.length > 0) {
+      return {
+        nextAction: "reveal_workup",
+        requestedReveal: "workup",
+        validity: "valid",
+        missing: [],
+        rationale:
+          "The candidate requested an appropriate diagnostic workup after history and examination.",
+      };
+    }
+
+    return {
+      nextAction: "prompt_for_next_step",
+      requestedReveal: "none",
+      validity: hasFramework ? "partial" : "invalid",
+      missing: ["appropriate workup request"],
+      rationale:
+        "The candidate needs to state the workup that separates the differential.",
+    };
+  }
+
+  if (state.stage === "workup") {
+    if (hasManagementClosure({ accepted })) {
+      return {
+        nextAction: "complete_case",
+        requestedReveal: "answer",
+        validity: "valid",
+        missing: [],
+        rationale:
+          "The candidate gave diagnosis, treatment, and follow-up or counseling after workup.",
+      };
+    }
+
+    if (intent === "ask_management" || accepted.management.length > 0) {
+      return {
+        nextAction: "prompt_management",
+        requestedReveal: "management",
+        validity: accepted.management.length > 0 ? "partial" : "invalid",
+        missing: ["final diagnosis", "counseling", "surveillance"],
+        rationale:
+          "The candidate is entering management but has not completed the board answer.",
+      };
+    }
+
+    return {
+      nextAction: "prompt_for_answer",
+      requestedReveal: "none",
+      validity: hasFramework ? "partial" : "invalid",
+      missing: ["final diagnosis", "management plan"],
+      rationale:
+        "The candidate needs to interpret the workup and commit to diagnosis and management.",
+    };
+  }
+
+  if (hasManagementClosure({ accepted })) {
+    return {
+      nextAction: "complete_case",
+      requestedReveal: "answer",
+      validity: "valid",
+      missing: [],
+      rationale:
+        "The candidate completed diagnosis, management, counseling or surveillance.",
+    };
+  }
+
+  return {
+    nextAction: "prompt_management",
+    requestedReveal: "management",
+    validity: accepted.management.length > 0 ? "partial" : "invalid",
+    missing: ["diagnosis", "management", "counseling", "surveillance"].filter(
+      (item) => {
+        if (item === "diagnosis") return accepted.diagnosis.length === 0;
+        if (item === "management") return accepted.management.length === 0;
+        if (item === "counseling") return accepted.counseling.length === 0;
+        return accepted.surveillance.length === 0;
+      }
+    ),
+    rationale:
+      "The candidate has not yet completed all final oral-board elements.",
+  };
+}
+
+export function buildOralExamAnswerEvaluation({
+  oralCaseId,
+  state,
+  userText,
+}: {
+  oralCaseId: string;
+  state: OralExamState;
+  userText: string;
+}): OralExamAnswerEvaluation {
+  const oralCase = getCaseById(oralCaseId);
+  const intent = classifyIntent(userText);
+  const accepted = {
+    diagnosis: matchedTerms(userText, oralCase.acceptableDiagnoses),
+    differential: matchedTerms(userText, oralCase.differential),
+    imageObservations: matchedTerms(userText, VISUAL_OBSERVATION_TERMS),
+    workup: matchedTerms(userText, [
+      "imaging",
+      "ct",
+      "mri",
+      "scan",
+      "biopsy",
+      "pathology",
+      "staging",
+      "lab",
+      "culture",
+      "visual acuity",
+      "motility",
+      ...keywordCandidates([oralCase.workup]),
+    ]),
+    management: matchedTerms(userText, [
+      "treat",
+      "treatment",
+      "manage",
+      "management",
+      "surgery",
+      "excision",
+      "chemotherapy",
+      "chemo",
+      "radiation",
+      "antibiotics",
+      "oncology",
+      "steroids",
+      "beta blocker",
+      "propranolol",
+      ...keywordCandidates([oralCase.management]),
+    ]),
+    counseling: matchedTerms(userText, [
+      "counsel",
+      "counseling",
+      "risk",
+      "prognosis",
+      "recurrence",
+      "spread",
+      "malignant",
+      "systemic",
+      ...keywordCandidates([oralCase.counseling]),
+    ]),
+    surveillance: matchedTerms(userText, [
+      "surveillance",
+      "follow",
+      "follow up",
+      "monitor",
+      "recurrence",
+      "long term",
+      ...keywordCandidates([oralCase.surveillance]),
+    ]),
+  };
+
+  return {
+    candidateIntent: intent,
+    accepted,
+    ...inferNextAction({ state, intent, accepted }),
+  };
+}
+
+function stageForAction(
+  currentStage: OralExamStage,
+  action: OralExamNextAction
+): OralExamStage {
+  if (currentStage === "complete") return "complete";
+
+  if (action === "reveal_history") return "history";
+  if (action === "reveal_workup") return "workup";
+  if (action === "prompt_management") return "management";
+  if (action === "complete_case") return "complete";
+  return currentStage;
 }
 
 function buildStageMessage(oralCase: OralExamCase, stage: OralExamStage) {
@@ -572,6 +936,47 @@ function buildStageMessage(oralCase: OralExamCase, stage: OralExamStage) {
   ].join("\n\n");
 }
 
+function buildActionMessage(
+  oralCase: OralExamCase,
+  stage: OralExamStage,
+  evaluation: OralExamAnswerEvaluation
+) {
+  if (evaluation.nextAction === "coach_without_disclosing") {
+    return [
+      "I will not give away the final answer yet.",
+      "Make your best oral-exam attempt: describe the visible abnormality, give a leading diagnosis or diagnostic category, and list a prioritized differential.",
+    ].join(" ");
+  }
+
+  if (evaluation.nextAction === "clarify_image") {
+    return [
+      "Use the starting photograph displayed on the left.",
+      "Describe the abnormal eyelid, orbital, conjunctival, pupillary, or periocular findings you can see, then give a leading diagnosis and differential.",
+    ].join(" ");
+  }
+
+  if (
+    evaluation.nextAction === "prompt_for_answer" ||
+    evaluation.nextAction === "prompt_for_next_step"
+  ) {
+    const missing = evaluation.missing.length
+      ? ` Missing elements: ${evaluation.missing.join(", ")}.`
+      : "";
+
+    if (stage === "visual") {
+      return `Before I reveal more, stay with the photograph. Give your visible findings, leading diagnosis, and differential.${missing}`;
+    }
+
+    if (stage === "history") {
+      return `You have the history and examination. Tell me the workup that separates your differential.${missing}`;
+    }
+
+    return `Interpret the available case data and give your final diagnosis and management plan.${missing}`;
+  }
+
+  return buildStageMessage(oralCase, stage);
+}
+
 export function handleOralExamTurn({
   oralCaseId,
   state,
@@ -582,7 +987,12 @@ export function handleOralExamTurn({
   userText: string;
 }): OralExamTurnResult {
   const oralCase = getCaseById(oralCaseId);
-  const stage = nextStage(state.stage, userText);
+  const answerEvaluation = buildOralExamAnswerEvaluation({
+    oralCaseId,
+    state,
+    userText,
+  });
+  const stage = stageForAction(state.stage, answerEvaluation.nextAction);
   const revealedFigureIds = getRevealedFigureIdsForStage(
     oralCase,
     stage,
@@ -597,8 +1007,9 @@ export function handleOralExamTurn({
       revealedFigureIds,
       turnCount: state.turnCount + 1,
     },
-    examinerMessage: buildStageMessage(oralCase, stage),
+    examinerMessage: buildActionMessage(oralCase, stage, answerEvaluation),
     revealedFigureIds,
     score,
+    answerEvaluation,
   };
 }

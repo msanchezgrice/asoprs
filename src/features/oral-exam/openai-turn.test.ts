@@ -5,6 +5,60 @@ import {
 } from "./openai-turn";
 import { getInitialOralExamState, type OralExamState } from "./oral-exam";
 
+const PARTIAL_VISUAL_EVALUATION = {
+  candidateIntent: "answer_attempt",
+  nextAction: "prompt_for_answer",
+  requestedReveal: "none",
+  validity: "partial",
+  accepted: {
+    diagnosis: [],
+    differential: ["orbital cellulitis"],
+    imageObservations: ["proptosis"],
+    workup: [],
+    management: [],
+    counseling: [],
+    surveillance: [],
+  },
+  missing: ["leading diagnosis"],
+  rationale: "The candidate noticed proptosis but has not committed.",
+};
+
+const SURRENDER_EVALUATION = {
+  candidateIntent: "request_answer",
+  nextAction: "coach_without_disclosing",
+  requestedReveal: "answer",
+  validity: "surrender",
+  accepted: {
+    diagnosis: [],
+    differential: [],
+    imageObservations: [],
+    workup: [],
+    management: [],
+    counseling: [],
+    surveillance: [],
+  },
+  missing: ["visible observations", "leading diagnosis", "differential"],
+  rationale: "The candidate asked to be given the answer.",
+};
+
+const COMPLETE_EVALUATION = {
+  candidateIntent: "ask_management",
+  nextAction: "complete_case",
+  requestedReveal: "answer",
+  validity: "valid",
+  accepted: {
+    diagnosis: ["sebaceous carcinoma"],
+    differential: [],
+    imageObservations: [],
+    workup: ["biopsy"],
+    management: ["excision"],
+    counseling: ["masquerade"],
+    surveillance: ["follow-up"],
+  },
+  missing: [],
+  rationale: "The candidate completed diagnosis and management.",
+};
+
 describe("OpenAI oral exam turn evaluator", () => {
   it("builds a structured request around the user's actual answer", () => {
     const state = getInitialOralExamState("orbital-rhabdomyosarcoma");
@@ -36,6 +90,9 @@ describe("OpenAI oral exam turn evaluator", () => {
       "management",
       "complete",
     ]);
+    expect(serialized).toContain("localAnswerEvaluation");
+    expect(serialized).toContain("answerEvaluation");
+    expect(serialized).toContain("coach_without_disclosing");
   });
 
   it("includes non-spoiler visible image and exam material context", () => {
@@ -109,6 +166,7 @@ describe("OpenAI oral exam turn evaluator", () => {
             total: 2,
           },
           sourceDisclosureAllowed: false,
+          answerEvaluation: PARTIAL_VISUAL_EVALUATION,
           feedback:
             "The candidate noticed the visual abnormality but has not committed to a diagnostic framework.",
         }),
@@ -154,6 +212,7 @@ describe("OpenAI oral exam turn evaluator", () => {
             total: 9,
           },
           sourceDisclosureAllowed: true,
+          answerEvaluation: COMPLETE_EVALUATION,
           feedback: "The candidate gave final diagnosis and management.",
         }),
       }),
@@ -174,6 +233,45 @@ describe("OpenAI oral exam turn evaluator", () => {
     expect(result.revealedFigureIds).toContain(
       "skin-conditions-sebaceous-adenocarcinoma-figure-7"
     );
+  });
+
+  it("does not complete or reveal the diagnosis when the user asks for the answer", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          stage: "complete",
+          examinerMessage:
+            "Final diagnosis: sebaceous carcinoma. Case source: source_image_simulated_case.",
+          score: {
+            diagnosis: 0,
+            differential: 0,
+            workup: 0,
+            management: 0,
+            total: 0,
+          },
+          sourceDisclosureAllowed: true,
+          answerEvaluation: SURRENDER_EVALUATION,
+          feedback: "The candidate asked for the answer.",
+        }),
+      }),
+    });
+
+    const result = await createOpenAIOralExamTurn({
+      apiKey: "sk-test",
+      oralCaseId: "sebaceous-carcinoma",
+      state: getInitialOralExamState("sebaceous-carcinoma"),
+      userText: "I don't know, just give me the answer.",
+      transcript: [],
+      fetchImpl,
+    });
+
+    expect(result.state.stage).toBe("visual");
+    expect(result.answerEvaluation.nextAction).toBe("coach_without_disclosing");
+    expect(result.answerEvaluation.validity).toBe("surrender");
+    expect(result.examinerMessage.toLowerCase()).not.toContain("sebaceous");
+    expect(result.examinerMessage.toLowerCase()).not.toContain("adenocarcinoma");
+    expect(result.examinerMessage).not.toContain("Case source");
   });
 
   it("throws a useful error when OpenAI rejects the evaluator request", async () => {

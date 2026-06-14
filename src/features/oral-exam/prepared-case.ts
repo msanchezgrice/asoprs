@@ -45,6 +45,11 @@ export type PreparedOralExamCase = {
       examinerMove: string;
     }
   >;
+  responseActions: Array<{
+    candidatePattern: string;
+    mappedAction: string;
+    examinerBehavior: string;
+  }>;
   iterativePath: Array<{
     stage: string;
     learnerTask: string;
@@ -208,6 +213,43 @@ export function buildPreparedOralExamCase(
           "Complete the case only after diagnosis, treatment, counseling, and surveillance are addressed.",
       },
     },
+    responseActions: [
+      {
+        candidatePattern:
+          "The candidate says they do not know, asks for the answer, or asks you to reveal the diagnosis.",
+        mappedAction: "coach_without_disclosing",
+        examinerBehavior:
+          "Do not disclose the diagnosis or source. Ask for one visible finding, a leading diagnosis or category, and a differential.",
+      },
+      {
+        candidatePattern:
+          "The candidate asks what photograph or image is shown.",
+        mappedAction: "clarify_image",
+        examinerBehavior:
+          "Point them back to the displayed image and ask them to describe visible abnormalities before naming a diagnosis.",
+      },
+      {
+        candidatePattern:
+          "The candidate describes visual findings and gives a diagnostic framework, then asks for history or examination.",
+        mappedAction: "reveal_history",
+        examinerBehavior:
+          "Read the history and examination script without revealing final diagnosis or source.",
+      },
+      {
+        candidatePattern:
+          "The candidate asks for appropriate imaging, biopsy, pathology, labs, or staging after clinical context.",
+        mappedAction: "reveal_workup",
+        examinerBehavior:
+          "Read the workup script and ask for diagnosis plus management.",
+      },
+      {
+        candidatePattern:
+          "The candidate gives final diagnosis, management, counseling, and surveillance.",
+        mappedAction: "complete_case",
+        examinerBehavior:
+          "Give the final debrief and disclose whether the case was real or simulated.",
+      },
+    ],
     iterativePath: [
       {
         stage: "visual",

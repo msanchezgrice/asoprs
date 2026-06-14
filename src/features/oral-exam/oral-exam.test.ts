@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ORAL_EXAM_CASES,
   buildOpeningExaminerMessage,
+  buildOralExamAnswerEvaluation,
   getOralExamFigureLabel,
   getOralExamCaseLabel,
   getInitialOralExamState,
@@ -62,6 +63,44 @@ describe("oral exam cases", () => {
 });
 
 describe("oral exam engine", () => {
+  it("maps answer requests to coaching without revealing the diagnosis", () => {
+    const state = getInitialOralExamState("sebaceous-carcinoma");
+    const result = handleOralExamTurn({
+      oralCaseId: "sebaceous-carcinoma",
+      state,
+      userText: "I don't know, please just give me the answer.",
+    });
+
+    expect(result.state.stage).toBe("visual");
+    expect(result.answerEvaluation.candidateIntent).toBe("request_answer");
+    expect(result.answerEvaluation.nextAction).toBe("coach_without_disclosing");
+    expect(result.answerEvaluation.validity).toBe("surrender");
+    expect(result.examinerMessage.toLowerCase()).not.toContain("sebaceous");
+    expect(result.examinerMessage.toLowerCase()).not.toContain("adenocarcinoma");
+    expect(result.examinerMessage).toContain("will not give away");
+  });
+
+  it("maps candidate content to accepted answer evidence before scoring", () => {
+    const state = {
+      ...getInitialOralExamState("orbital-rhabdomyosarcoma"),
+      stage: "management" as const,
+    };
+    const evaluation = buildOralExamAnswerEvaluation({
+      oralCaseId: "orbital-rhabdomyosarcoma",
+      state,
+      userText:
+        "This is orbital rhabdomyosarcoma. I would involve oncology, use chemotherapy and radiation, counsel the family, and follow for recurrence.",
+    });
+
+    expect(evaluation.candidateIntent).toBe("ask_management");
+    expect(evaluation.accepted.diagnosis).toContain("orbital rhabdomyosarcoma");
+    expect(evaluation.accepted.management.length).toBeGreaterThan(0);
+    expect(evaluation.accepted.counseling.length).toBeGreaterThan(0);
+    expect(evaluation.accepted.surveillance.length).toBeGreaterThan(0);
+    expect(evaluation.nextAction).toBe("complete_case");
+    expect(evaluation.validity).toBe("valid");
+  });
+
   it("serially reveals history, workup, management, and source disclosure", () => {
     let state = getInitialOralExamState("orbital-rhabdomyosarcoma");
 

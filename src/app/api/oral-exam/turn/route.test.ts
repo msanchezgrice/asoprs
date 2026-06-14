@@ -29,6 +29,23 @@ describe("/api/oral-exam/turn", () => {
               total: 1,
             },
             sourceDisclosureAllowed: false,
+            answerEvaluation: {
+              candidateIntent: "answer_attempt",
+              nextAction: "prompt_for_answer",
+              requestedReveal: "none",
+              validity: "partial",
+              accepted: {
+                diagnosis: [],
+                differential: [],
+                imageObservations: ["proptosis"],
+                workup: [],
+                management: [],
+                counseling: [],
+                surveillance: [],
+              },
+              missing: ["leading diagnosis", "differential"],
+              rationale: "The candidate has not committed to a diagnosis.",
+            },
             feedback: "The candidate has not committed to a diagnosis.",
           }),
         }),
@@ -53,7 +70,7 @@ describe("/api/oral-exam/turn", () => {
     expect(payload.examinerMessage).toContain("leading diagnosis");
   });
 
-  it("falls back to the deterministic engine when OpenAI is not configured", async () => {
+  it("falls back to the deterministic engine with answer-aware gating", async () => {
     delete process.env.OPENAI_API_KEY;
 
     const response = await POST(
@@ -70,7 +87,8 @@ describe("/api/oral-exam/turn", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.state.stage).toBe("history");
-    expect(payload.examinerMessage).toContain("History");
+    expect(payload.state.stage).toBe("visual");
+    expect(payload.answerEvaluation.nextAction).toBe("prompt_for_answer");
+    expect(payload.examinerMessage).toContain("Before I reveal more");
   });
 });
