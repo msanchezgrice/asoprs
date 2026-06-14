@@ -28,9 +28,7 @@ import cards from "@/data/image-flashcards.generated.json";
 import {
   getCompletedInputTranscript,
   getResponseAudioTranscriptDelta,
-  hasSpeechRecognition,
   parseRealtimeEvent,
-  type SpeechRecognitionWindow,
 } from "@/features/oral-exam/realtime-client";
 import { buildExaminerReadAloudEvent } from "@/features/oral-exam/realtime-session";
 import { resolveOralExamPdfUrl } from "@/features/oral-exam/pdf-url";
@@ -68,33 +66,7 @@ type ChatMessage = {
   text: string;
 };
 
-type VoiceMode = "off" | "connecting" | "openai" | "browser" | "error";
-
-type BrowserSpeechRecognitionResult = {
-  isFinal: boolean;
-  0?: {
-    transcript?: string;
-  };
-};
-
-type BrowserSpeechRecognitionEvent = {
-  resultIndex: number;
-  results: ArrayLike<BrowserSpeechRecognitionResult>;
-};
-
-type BrowserSpeechRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: { error?: string }) => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort?: () => void;
-};
-
-type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+type VoiceMode = "off" | "connecting" | "openai" | "error";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
@@ -177,17 +149,10 @@ export default function OralExamPage() {
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const restartBrowserVoiceRef = useRef(false);
   const lastSpokenExaminerIdRef = useRef<string | null>(null);
   const submitTurnRef = useRef<(text: string) => void>(() => {});
 
   const stopVoice = useCallback((updateState = true) => {
-    restartBrowserVoiceRef.current = false;
-    speechRecognitionRef.current?.abort?.();
-    speechRecognitionRef.current?.stop();
-    speechRecognitionRef.current = null;
-
     dataChannelRef.current?.close();
     dataChannelRef.current = null;
     peerConnectionRef.current?.close();
@@ -198,10 +163,6 @@ export default function OralExamPage() {
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
     }
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-
     if (updateState) {
       setVoiceMode("off");
       setVoiceStatus("Voice off");
@@ -242,27 +203,60 @@ export default function OralExamPage() {
     setScore(0);
   }
 
-  function submitTurn(text: string) {
+  async function requestOralExamTurn(
+    oralCaseId: string,
+    currentState: OralExamState,
+    userText: string
+  ) {
+    const response = await fetch("/api/oral-exam/turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oralCaseId,
+        state: currentState,
+        userText,
+        transcript: messages.slice(-8).map((message) => ({
+          role: message.role,
+          text: message.text,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Oral exam turn failed: ${response.status}`);
+    }
+
+    return (await response.json()) as ReturnType<typeof handleOralExamTurn>;
+  }
+
+  async function submitTurn(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    const result = handleOralExamTurn({
-      oralCaseId: selectedCase.id,
-      state,
-      userText: trimmed,
-    });
+    const currentState = state;
+    const result = await requestOralExamTurn(
+      selectedCase.id,
+      currentState,
+      trimmed
+    ).catch(() =>
+      handleOralExamTurn({
+        oralCaseId: selectedCase.id,
+        state: currentState,
+        userText: trimmed,
+      })
+    );
 
     setState(result.state);
     setScore((current) => Math.max(current, result.score.total));
     setMessages((current) => [
       ...current,
       {
-        id: `${selectedCase.id}-${state.turnCount + 1}-candidate`,
+        id: `${selectedCase.id}-${currentState.turnCount + 1}-candidate`,
         role: "candidate",
         text: trimmed,
       },
       {
-        id: `${selectedCase.id}-${state.turnCount + 1}-examiner`,
+        id: `${selectedCase.id}-${currentState.turnCount + 1}-examiner`,
         role: "examiner",
         text: result.examinerMessage,
       },
@@ -272,7 +266,7 @@ export default function OralExamPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submitTurn(input);
+    void submitTurn(input);
   }
 
   submitTurnRef.current = submitTurn;
@@ -288,95 +282,10 @@ export default function OralExamPage() {
         return;
       }
 
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-        return;
-      }
-
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(trimmed);
-      utterance.rate = 0.95;
-      utterance.pitch = 1;
-      const activeRecognition = speechRecognitionRef.current;
-      if (voiceMode === "browser" && activeRecognition) {
-        restartBrowserVoiceRef.current = false;
-        try {
-          activeRecognition.stop();
-        } catch {
-          // Some browsers throw when stopping an inactive recognizer.
-        }
-        const restartRecognition = () => {
-          if (speechRecognitionRef.current !== activeRecognition) return;
-          restartBrowserVoiceRef.current = true;
-          try {
-            activeRecognition.start();
-          } catch {
-            // The browser may already have restarted recognition.
-          }
-        };
-        utterance.onend = restartRecognition;
-        utterance.onerror = restartRecognition;
-      }
-      window.speechSynthesis.speak(utterance);
+      setVoiceStatus("OpenAI voice is not connected");
     },
     [voiceMode]
   );
-
-  const startBrowserVoice = useCallback((status = "Browser voice") => {
-    const speechWindow = window as SpeechRecognitionWindow & {
-      SpeechRecognition?: BrowserSpeechRecognitionConstructor;
-      webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
-    };
-    const SpeechRecognition =
-      speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      throw new Error("Voice recognition is not available in this browser.");
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-
-      for (let index = event.resultIndex; index < event.results.length; index++) {
-        const result = event.results[index];
-        const transcript = result[0]?.transcript ?? "";
-        if (result.isFinal) {
-          finalText += transcript;
-        } else {
-          interimText += transcript;
-        }
-      }
-
-      setLiveVoiceText(interimText.trim() || finalText.trim());
-      if (finalText.trim()) {
-        submitTurnRef.current(finalText.trim());
-        setLiveVoiceText("");
-      }
-    };
-    recognition.onend = () => {
-      if (!restartBrowserVoiceRef.current) return;
-      try {
-        recognition.start();
-      } catch {
-        // Recognition can throw when the browser is already restarting it.
-      }
-    };
-    recognition.onerror = (event) => {
-      restartBrowserVoiceRef.current = false;
-      setVoiceMode("error");
-      setVoiceStatus(event.error ? `Voice error: ${event.error}` : "Voice error");
-    };
-
-    speechRecognitionRef.current = recognition;
-    restartBrowserVoiceRef.current = true;
-    recognition.start();
-    setVoiceMode("browser");
-    setVoiceStatus(status);
-  }, []);
 
   const connectOpenAIRealtime = useCallback(async (clientSecret: string) => {
     const peerConnection = new RTCPeerConnection();
@@ -467,14 +376,6 @@ export default function OralExamPage() {
         return;
       }
 
-      if (
-        tokenResponse.status === 503 &&
-        hasSpeechRecognition(window as SpeechRecognitionWindow)
-      ) {
-        startBrowserVoice("Browser voice");
-        return;
-      }
-
       const payload = (await tokenResponse.json().catch(() => null)) as {
         error?: string;
       } | null;
@@ -485,22 +386,13 @@ export default function OralExamPage() {
       micStreamRef.current?.getTracks().forEach((track) => track.stop());
       micStreamRef.current = null;
 
-      if (hasSpeechRecognition(window as SpeechRecognitionWindow)) {
-        try {
-          startBrowserVoice("Browser voice");
-          return;
-        } catch {
-          // Fall through to the visible error state below.
-        }
-      }
-
       setVoiceMode("error");
       setVoiceStatus(error instanceof Error ? error.message : "Voice unavailable");
     }
-  }, [connectOpenAIRealtime, startBrowserVoice]);
+  }, [connectOpenAIRealtime]);
 
   useEffect(() => {
-    if (voiceMode !== "openai" && voiceMode !== "browser") return;
+    if (voiceMode !== "openai") return;
 
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage || lastMessage.role !== "examiner") return;
@@ -517,7 +409,7 @@ export default function OralExamPage() {
   const supportingFigures = revealedFigures.slice(1);
   const isComplete = state.stage === "complete";
   const isVoiceActive =
-    voiceMode === "connecting" || voiceMode === "openai" || voiceMode === "browser";
+    voiceMode === "connecting" || voiceMode === "openai";
   const voiceButtonLabel =
     voiceMode === "connecting"
       ? "Connecting"

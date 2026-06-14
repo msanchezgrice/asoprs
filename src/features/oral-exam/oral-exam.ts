@@ -483,7 +483,7 @@ function nextStage(currentStage: OralExamStage, userText: string): OralExamStage
   return "complete";
 }
 
-function revealedFiguresForStage(
+export function getRevealedFigureIdsForStage(
   oralCase: OralExamCase,
   stage: OralExamStage,
   existing: string[]
@@ -583,7 +583,7 @@ export function handleOralExamTurn({
 }): OralExamTurnResult {
   const oralCase = getCaseById(oralCaseId);
   const stage = nextStage(state.stage, userText);
-  const revealedFigureIds = revealedFiguresForStage(
+  const revealedFigureIds = getRevealedFigureIdsForStage(
     oralCase,
     stage,
     state.revealedFigureIds
