@@ -7,6 +7,8 @@ describe("getPageCategory", () => {
     expect(getPageCategory("/admin/settings")).toBe("admin");
     expect(getPageCategory("/flashcards")).toBe("study-flashcards");
     expect(getPageCategory("/flashcards/123")).toBe("study-flashcards");
+    expect(getPageCategory("/oral-exam")).toBe("study-oral-exam");
+    expect(getPageCategory("/oral-exam/case")).toBe("study-oral-exam");
     expect(getPageCategory("/quiz")).toBe("study-quiz");
     expect(getPageCategory("/quiz/start")).toBe("study-quiz");
     expect(getPageCategory("/read")).toBe("study-reader");

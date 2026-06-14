@@ -1,6 +1,7 @@
 export function getPageCategory(pathname: string): string {
   if (pathname.startsWith('/admin')) return 'admin';
   if (pathname.startsWith('/flashcards')) return 'study-flashcards';
+  if (pathname.startsWith('/oral-exam')) return 'study-oral-exam';
   if (pathname.startsWith('/quiz')) return 'study-quiz';
   if (pathname.startsWith('/read')) return 'study-reader';
   if (pathname.startsWith('/chat')) return 'study-chat';
@@ -20,5 +21,5 @@ export function getFeedbackType(userRole: string, pageCategory: string): 'user' 
 }
 
 // Page categories that are "study product" vs "platform"
-export const STUDY_CATEGORIES = ['study-flashcards', 'study-quiz', 'study-reader', 'study-chat', 'study-mindmap', 'study-resources', 'study-progress'];
+export const STUDY_CATEGORIES = ['study-flashcards', 'study-oral-exam', 'study-quiz', 'study-reader', 'study-chat', 'study-mindmap', 'study-resources', 'study-progress'];
 export const PLATFORM_CATEGORIES = ['admin', 'general'];
