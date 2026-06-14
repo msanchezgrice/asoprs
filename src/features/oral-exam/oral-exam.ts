@@ -548,18 +548,6 @@ function matchedTerms(userText: string, terms: string[]) {
   );
 }
 
-function keywordCandidates(values: string[]) {
-  return Array.from(
-    new Set(
-      values.flatMap((value) =>
-        normalize(value)
-          .split(" ")
-          .filter((part) => part.length > 4)
-      )
-    )
-  );
-}
-
 function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
   const acceptedDiagnoses = matchedTerms(userText, oralCase.acceptableDiagnoses);
   const acceptedDifferential = matchedTerms(userText, oralCase.differential);
@@ -572,7 +560,6 @@ function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
     "staging",
     "visual acuity",
     "motility",
-    ...keywordCandidates([oralCase.workup]),
   ]);
   const acceptedManagement = matchedTerms(userText, [
     "treat",
@@ -585,7 +572,6 @@ function scoreTurn(oralCase: OralExamCase, userText: string): OralExamScore {
     "counseling",
     "surveillance",
     "follow",
-    ...keywordCandidates([oralCase.management]),
   ]);
 
   return {
@@ -842,7 +828,6 @@ export function buildOralExamAnswerEvaluation({
       "culture",
       "visual acuity",
       "motility",
-      ...keywordCandidates([oralCase.workup]),
     ]),
     management: matchedTerms(userText, [
       "treat",
@@ -859,7 +844,6 @@ export function buildOralExamAnswerEvaluation({
       "steroids",
       "beta blocker",
       "propranolol",
-      ...keywordCandidates([oralCase.management]),
     ]),
     counseling: matchedTerms(userText, [
       "counsel",
@@ -870,7 +854,6 @@ export function buildOralExamAnswerEvaluation({
       "spread",
       "malignant",
       "systemic",
-      ...keywordCandidates([oralCase.counseling]),
     ]),
     surveillance: matchedTerms(userText, [
       "surveillance",
@@ -879,7 +862,6 @@ export function buildOralExamAnswerEvaluation({
       "monitor",
       "recurrence",
       "long term",
-      ...keywordCandidates([oralCase.surveillance]),
     ]),
   };
 
