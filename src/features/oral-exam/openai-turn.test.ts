@@ -48,10 +48,27 @@ describe("OpenAI oral exam turn evaluator", () => {
 
     const serialized = JSON.stringify(request);
 
-    expect(serialized).toContain("visibleMaterials");
+    expect(serialized).toContain("visibleImageFindings");
     expect(serialized).toContain("Figure 1");
     expect(serialized).toContain("painless proptosis");
     expect(serialized).toContain("Do not say you cannot see");
+  });
+
+  it("passes the prepared oral exam packet to the evaluator", () => {
+    const request = buildOpenAIOralExamTurnRequest({
+      oralCaseId: "orbital-rhabdomyosarcoma",
+      state: getInitialOralExamState("orbital-rhabdomyosarcoma"),
+      userText: "I see proptosis and would like to work through the case.",
+      transcript: [],
+    });
+
+    const serialized = JSON.stringify(request);
+
+    expect(serialized).toContain("preparedCase");
+    expect(serialized).toContain("acceptableAnswers");
+    expect(serialized).toContain("stageGates");
+    expect(serialized).toContain("examinerScripts");
+    expect(serialized).toContain("visualFollowUp");
   });
 
   it("redacts diagnosis-bearing figure context before completion", () => {
@@ -62,9 +79,14 @@ describe("OpenAI oral exam turn evaluator", () => {
       transcript: [],
     });
 
-    const serialized = JSON.stringify(request).toLowerCase();
-    const materialStart = serialized.indexOf("visiblematerials");
-    const materialSection = serialized.slice(materialStart, materialStart + 1200);
+    const payload = JSON.parse(request.input[1].content) as {
+      preparedCase: {
+        visibleImageFindings: Array<{ caption: string; references: string[] }>;
+      };
+    };
+    const materialSection = JSON.stringify(
+      payload.preparedCase.visibleImageFindings
+    ).toLowerCase();
 
     expect(materialSection).toContain("[redacted]");
     expect(materialSection).not.toContain("sebaceous");

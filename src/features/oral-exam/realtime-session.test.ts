@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildExaminerReadAloudEvent,
+  buildExaminerReadAloudEvents,
   buildOralExamRealtimeInstructions,
   buildOralExamRealtimeSessionPayload,
   createOralExamRealtimeClientSecret,
@@ -73,6 +74,20 @@ describe("oral exam realtime session", () => {
       "History: The patient has painless proptosis."
     );
     expect(JSON.stringify(event).toLowerCase()).not.toContain("final diagnosis");
+  });
+
+  it("builds a concrete conversation item before requesting audio", () => {
+    const events = buildExaminerReadAloudEvents(
+      "Describe the visible photograph and ask for a differential."
+    );
+
+    expect(events).toHaveLength(2);
+    expect(events[0].type).toBe("conversation.item.create");
+    expect(JSON.stringify(events[0])).toContain(
+      "Describe the visible photograph"
+    );
+    expect(events[1].type).toBe("response.create");
+    expect(JSON.stringify(events[1]).toLowerCase()).toContain("latest examiner script");
   });
 
   it("instructs the voice model not to claim it lacks image or material access", () => {

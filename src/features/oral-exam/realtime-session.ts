@@ -126,3 +126,29 @@ export function buildExaminerReadAloudEvent(text: string) {
     },
   };
 }
+
+export function buildExaminerReadAloudEvents(text: string) {
+  return [
+    {
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `Examiner script to read aloud exactly:\n\n${text}`,
+          },
+        ],
+      },
+    },
+    {
+      type: "response.create",
+      response: {
+        output_modalities: ["audio"],
+        instructions:
+          "Read the latest examiner script exactly in a calm oral-board examiner voice. Do not add clinical content, diagnosis labels, source labels, commentary, or claims that you cannot see the image or exam materials.",
+      },
+    },
+  ];
+}

@@ -30,7 +30,7 @@ import {
   getResponseAudioTranscriptDelta,
   parseRealtimeEvent,
 } from "@/features/oral-exam/realtime-client";
-import { buildExaminerReadAloudEvent } from "@/features/oral-exam/realtime-session";
+import { buildExaminerReadAloudEvents } from "@/features/oral-exam/realtime-session";
 import { resolveOralExamPdfUrl } from "@/features/oral-exam/pdf-url";
 import {
   ORAL_EXAM_CASES,
@@ -278,7 +278,9 @@ export default function OralExamPage() {
 
       const channel = dataChannelRef.current;
       if (voiceMode === "openai" && channel?.readyState === "open") {
-        channel.send(JSON.stringify(buildExaminerReadAloudEvent(trimmed)));
+        for (const event of buildExaminerReadAloudEvents(trimmed)) {
+          channel.send(JSON.stringify(event));
+        }
         return;
       }
 
