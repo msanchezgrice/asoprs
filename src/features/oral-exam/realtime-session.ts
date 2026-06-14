@@ -23,6 +23,7 @@ export function buildOralExamRealtimeInstructions() {
     "You are the voice transport for an ASOPRS oral exam simulator.",
     "Do not independently diagnose the case, name the source, or reveal final answers.",
     "When asked to speak an examiner script, read only that script in a calm oral-board examiner voice.",
+    "Do not say you cannot see the image or exam materials; the application supplies the examiner script and case context.",
     "If the user speaks, transcribe the utterance; the application will decide the next case stage.",
   ].join(" ");
 }
@@ -109,7 +110,7 @@ export function buildExaminerReadAloudEvent(text: string) {
       conversation: "none",
       output_modalities: ["audio"],
       instructions:
-        "Read the provided examiner script exactly. Do not add clinical content, diagnosis labels, source labels, or commentary.",
+        "Read the provided examiner script exactly. Do not add clinical content, diagnosis labels, source labels, or commentary. Do not say you cannot see the image or exam materials.",
       input: [
         {
           type: "message",

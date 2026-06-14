@@ -38,6 +38,39 @@ describe("OpenAI oral exam turn evaluator", () => {
     ]);
   });
 
+  it("includes non-spoiler visible image and exam material context", () => {
+    const request = buildOpenAIOralExamTurnRequest({
+      oralCaseId: "orbital-rhabdomyosarcoma",
+      state: getInitialOralExamState("orbital-rhabdomyosarcoma"),
+      userText: "Can you tell me what image you are showing?",
+      transcript: [],
+    });
+
+    const serialized = JSON.stringify(request);
+
+    expect(serialized).toContain("visibleMaterials");
+    expect(serialized).toContain("Figure 1");
+    expect(serialized).toContain("painless proptosis");
+    expect(serialized).toContain("Do not say you cannot see");
+  });
+
+  it("redacts diagnosis-bearing figure context before completion", () => {
+    const request = buildOpenAIOralExamTurnRequest({
+      oralCaseId: "sebaceous-carcinoma",
+      state: getInitialOralExamState("sebaceous-carcinoma"),
+      userText: "What does the image show?",
+      transcript: [],
+    });
+
+    const serialized = JSON.stringify(request).toLowerCase();
+    const materialStart = serialized.indexOf("visiblematerials");
+    const materialSection = serialized.slice(materialStart, materialStart + 1200);
+
+    expect(materialSection).toContain("[redacted]");
+    expect(materialSection).not.toContain("sebaceous");
+    expect(materialSection).not.toContain("adenocarcinoma");
+  });
+
   it("uses the model decision to keep the user working through the case", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,

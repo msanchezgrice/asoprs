@@ -1,11 +1,13 @@
 import {
   getCaseById,
   getRevealedFigureIdsForStage,
+  type OralExamCase,
   type OralExamScore,
   type OralExamStage,
   type OralExamState,
   type OralExamTurnResult,
 } from "./oral-exam";
+import cards from "@/data/image-flashcards.generated.json";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_ORAL_EXAM_EVALUATOR_MODEL = "gpt-4o-mini";
@@ -37,6 +39,8 @@ type ModelTurnDecision = {
   sourceDisclosureAllowed: boolean;
   feedback: string;
 };
+
+type ImageFlashcard = (typeof cards)[number];
 
 const TURN_DECISION_SCHEMA = {
   type: "object",
@@ -85,6 +89,8 @@ const TURN_DECISION_SCHEMA = {
 function buildEvaluatorInstructions() {
   return [
     "You are an ASOPRS oral board examiner running an interactive case.",
+    "The app provides visible image and exam material context; use it as your case file.",
+    "Do not say you cannot see the image, cannot access exam materials, or cannot continue without them.",
     "Listen to the candidate's actual answer. Do not just advance because a keyword appears.",
     "Let the candidate work through observation, leading diagnosis, differential, workup, management, counseling, and surveillance.",
     "If the candidate has not committed to a useful diagnostic framework, ask one targeted examiner follow-up and keep the same stage.",
@@ -93,6 +99,52 @@ function buildEvaluatorInstructions() {
     "If stage is complete, include final diagnosis, management, counseling, surveillance, and case source.",
     "Return JSON matching the schema exactly.",
   ].join(" ");
+}
+
+function findFigure(figureId: string) {
+  return (cards as ImageFlashcard[]).find((card) => card.id === figureId);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function redactSpoilers(value: string, oralCase: OralExamCase, allowSpoilers: boolean) {
+  if (allowSpoilers) return value;
+
+  const spoilerTerms = [
+    oralCase.diagnosis,
+    oralCase.sourceTopic,
+    ...oralCase.acceptableDiagnoses,
+  ]
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  return spoilerTerms.reduce(
+    (current, term) =>
+      current.replace(new RegExp(escapeRegExp(term), "gi"), "[redacted]"),
+    value
+  );
+}
+
+function buildVisibleMaterials(oralCase: OralExamCase, state: OralExamState) {
+  const allowSpoilers = state.stage === "complete";
+
+  return state.revealedFigureIds
+    .map(findFigure)
+    .filter((figure): figure is ImageFlashcard => Boolean(figure))
+    .map((figure, index) => ({
+      label:
+        index === 0
+          ? `${figure.figureLabel} / starting image`
+          : `${figure.figureLabel} / revealed image ${String(index).padStart(2, "0")}`,
+      pageNumber: figure.pageNumber,
+      caption: redactSpoilers(figure.caption ?? "", oralCase, allowSpoilers),
+      references: (figure.references ?? [])
+        .slice(0, 4)
+        .map((reference) => redactSpoilers(reference, oralCase, allowSpoilers)),
+    }));
 }
 
 export function buildOpenAIOralExamTurnRequest({
@@ -117,7 +169,6 @@ export function buildOpenAIOralExamTurnRequest({
         content: JSON.stringify({
           currentStage: state.stage,
           turnCount: state.turnCount,
-          revealedFigureIds: state.revealedFigureIds,
           candidateAnswer: userText,
           recentTranscript: transcript.slice(-8),
           caseData: {
@@ -136,6 +187,10 @@ export function buildOpenAIOralExamTurnRequest({
             sourceDisclosure: oralCase.sourceDisclosure,
             teachingPoints: oralCase.teachingPoints,
           },
+          revealedImageCount: state.revealedFigureIds.length,
+          visibleMaterials: buildVisibleMaterials(oralCase, state),
+          visibleMaterialInstructions:
+            "Use visibleMaterials as the visible photograph/exam-material context. If the candidate asks what is shown, answer from this context without naming the final diagnosis or source before completion. Do not say you cannot see the image or materials.",
         }),
       },
     ],

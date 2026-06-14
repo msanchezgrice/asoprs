@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildExaminerReadAloudEvent,
+  buildOralExamRealtimeInstructions,
   buildOralExamRealtimeSessionPayload,
   createOralExamRealtimeClientSecret,
 } from "./realtime-session";
@@ -72,6 +73,17 @@ describe("oral exam realtime session", () => {
       "History: The patient has painless proptosis."
     );
     expect(JSON.stringify(event).toLowerCase()).not.toContain("final diagnosis");
+  });
+
+  it("instructs the voice model not to claim it lacks image or material access", () => {
+    const instructions = buildOralExamRealtimeInstructions().toLowerCase();
+    const event = buildExaminerReadAloudEvent("Describe the image.");
+
+    expect(instructions).toContain("do not say you cannot see");
+    expect(instructions).toContain("exam materials");
+    expect(event.response.instructions.toLowerCase()).toContain(
+      "do not say you cannot see"
+    );
   });
 
   it("allows model and voice overrides while preserving safe defaults", () => {
