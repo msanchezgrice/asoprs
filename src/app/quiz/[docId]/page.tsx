@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -18,6 +18,9 @@ import { UserFeatureSlot } from "@/components/user-feature-slot";
 
 type ExamMode = "practice" | "timed";
 type QuizState = "setup" | "active" | "review";
+type PacketSize = 25 | 50 | 100;
+
+const PACKET_SIZE_OPTIONS = [25, 50, 100] as const;
 
 interface MCQ {
   id: string;
@@ -73,6 +76,7 @@ export default function QuizPage({
 
   const [quizState, setQuizState] = useState<QuizState>("setup");
   const [mode, setMode] = useState<ExamMode>("practice");
+  const [packetSize, setPacketSize] = useState<PacketSize>(100);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<string, number>
@@ -81,12 +85,16 @@ export default function QuizPage({
   const [showHint, setShowHint] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
-  const question = questions[currentIndex];
+  const quizQuestions = useMemo(
+    () => questions.slice(0, Math.min(packetSize, questions.length)),
+    [packetSize, questions]
+  );
+  const question = quizQuestions[currentIndex];
   const selected = question ? selectedAnswers[question.id] : undefined;
   const isAnswered = selected !== undefined;
 
   const correctCount = Object.entries(selectedAnswers).filter(
-    ([qId, ans]) => questions.find((q) => q.id === qId)?.correctIndex === ans
+    ([qId, ans]) => quizQuestions.find((q) => q.id === qId)?.correctIndex === ans
   ).length;
 
   const handleSelect = useCallback(
@@ -105,7 +113,7 @@ export default function QuizPage({
     (answers: Record<string, number>) => {
       const total = Object.keys(answers).length;
       const correct = Object.entries(answers).filter(
-        ([qId, ans]) => questions.find((q) => q.id === qId)?.correctIndex === ans
+        ([qId, ans]) => quizQuestions.find((q) => q.id === qId)?.correctIndex === ans
       ).length;
 
       fetch("/api/quiz-sessions", {
@@ -125,19 +133,28 @@ export default function QuizPage({
         })
         .catch(() => {});
     },
-    [docId, mode, questions]
+    [docId, mode, quizQuestions]
   );
 
   const handleNext = () => {
     setShowExplanation(false);
     setShowHint(false);
-    if (currentIndex < questions.length - 1) {
+    if (currentIndex < quizQuestions.length - 1) {
       setCurrentIndex((i) => i + 1);
     } else {
       saveSession(selectedAnswers);
       setQuizState("review");
     }
   };
+
+  function startQuiz(nextMode: ExamMode) {
+    setMode(nextMode);
+    setCurrentIndex(0);
+    setSelectedAnswers({});
+    setShowExplanation(false);
+    setShowHint(false);
+    setQuizState("active");
+  }
 
   if (loading) {
     return (
@@ -192,12 +209,41 @@ export default function QuizPage({
               </div>
             )}
 
+            <fieldset className="mt-6">
+              <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-gray">
+                Question count
+              </legend>
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-ivory-dark bg-ivory p-1">
+                {PACKET_SIZE_OPTIONS.map((count) => (
+                  <label
+                    key={count}
+                    className={`cursor-pointer rounded-xl px-3 py-2 text-center text-sm font-semibold transition ${
+                      packetSize === count
+                        ? "bg-white text-navy shadow-sm"
+                        : "text-warm-gray hover:bg-white/70 hover:text-navy"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="packet-size"
+                      value={count}
+                      checked={packetSize === count}
+                      onChange={() => setPacketSize(count)}
+                      className="sr-only"
+                    />
+                    {count} questions
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-warm-gray">
+                {quizQuestions.length} question
+                {quizQuestions.length === 1 ? "" : "s"} selected for this run.
+              </p>
+            </fieldset>
+
             <div className="mt-8 space-y-3">
               <button
-                onClick={() => {
-                  setMode("practice");
-                  setQuizState("active");
-                }}
+                onClick={() => startQuiz("practice")}
                 className="flex w-full items-center gap-4 rounded-xl border border-ivory-dark bg-white p-4 text-left transition-all hover:border-coral/30 hover:shadow-sm active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-coral/10">
@@ -212,10 +258,7 @@ export default function QuizPage({
               </button>
 
               <button
-                onClick={() => {
-                  setMode("timed");
-                  setQuizState("active");
-                }}
+                onClick={() => startQuiz("timed")}
                 className="flex w-full items-center gap-4 rounded-xl border border-ivory-dark bg-white p-4 text-left transition-all hover:border-coral/30 hover:shadow-sm active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-navy/5">
@@ -224,7 +267,7 @@ export default function QuizPage({
                 <div>
                   <p className="font-semibold text-navy">Timed Exam</p>
                   <p className="text-xs text-warm-gray">
-                    All questions, then review results at the end
+                    Selected questions, then review results at the end
                   </p>
                 </div>
               </button>
@@ -301,7 +344,7 @@ export default function QuizPage({
             </div>
 
             <div className="mt-6 max-h-[40vh] space-y-2 overflow-auto md:mt-8 md:max-h-64">
-              {questions.map((q, i) => {
+              {quizQuestions.map((q, i) => {
                 const ans = selectedAnswers[q.id];
                 const correct = ans === q.correctIndex;
                 return (
@@ -344,6 +387,7 @@ export default function QuizPage({
                   setCurrentIndex(0);
                   setSelectedAnswers({});
                   setShowExplanation(false);
+                  setShowHint(false);
                 }}
                 className="w-full rounded-lg bg-navy py-3.5 text-sm font-semibold text-white transition-colors hover:bg-navy-light active:scale-[0.98]"
               >
@@ -378,7 +422,7 @@ export default function QuizPage({
               {mode === "practice" ? "Practice" : "Timed Exam"}
             </h1>
             <p className="text-[11px] text-warm-gray">
-              Question {currentIndex + 1} of {questions.length}
+              Question {currentIndex + 1} of {quizQuestions.length}
             </p>
           </div>
         </div>
@@ -405,7 +449,7 @@ export default function QuizPage({
         <div
           className="h-full bg-coral transition-all duration-300"
           style={{
-            width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            width: `${((currentIndex + 1) / quizQuestions.length) * 100}%`,
           }}
         />
       </div>
@@ -523,14 +567,14 @@ export default function QuizPage({
       <div className="sticky bottom-0 z-10 border-t border-ivory-dark bg-white px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <span className="text-xs text-warm-gray">
-            {currentIndex + 1} of {questions.length}
+            {currentIndex + 1} of {quizQuestions.length}
           </span>
           <button
             onClick={handleNext}
             disabled={!isAnswered && mode === "practice"}
             className="flex items-center gap-2 rounded-lg bg-coral px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-coral-dark disabled:bg-ivory-dark disabled:text-warm-gray active:scale-95"
           >
-            {currentIndex === questions.length - 1 ? "Finish" : "Next"}
+            {currentIndex === quizQuestions.length - 1 ? "Finish" : "Next"}
             <ChevronRight size={16} />
           </button>
         </div>
