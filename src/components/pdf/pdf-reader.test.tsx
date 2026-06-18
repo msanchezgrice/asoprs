@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { PdfReader, type PdfHighlight } from "./pdf-reader";
 
@@ -192,5 +192,196 @@ describe("PdfReader", () => {
     fireEvent.click(deleteButtons[0]);
 
     expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
+  });
+
+  test("right-click on highlight shows context menu with Remove Highlight option", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const [hlButton] = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.contextMenu(hlButton);
+
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /remove highlight/i })).toBeInTheDocument();
+  });
+
+  test("clicking Remove Highlight in context menu calls onDeleteHighlight", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const [hlButton] = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    fireEvent.contextMenu(hlButton);
+
+    const menuItem = await screen.findByRole("menuitem", { name: /remove highlight/i });
+    fireEvent.click(menuItem);
+
+    expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1");
+  });
+
+  test("context menu does not appear when right-clicking non-highlight areas", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={[]}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    await screen.findByTestId("mock-page-1");
+
+    const pageNode = getPageNode();
+    fireEvent.contextMenu(pageNode);
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  test("Delete key removes the selected highlight", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const [hlButton] = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    // Right-click to select the highlight (opens context menu)
+    fireEvent.contextMenu(hlButton);
+    await screen.findByRole("menu");
+
+    // Press Delete key — should remove the selected highlight
+    fireEvent.keyDown(document, { key: "Delete" });
+
+    await waitFor(() => expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1"));
+    // Context menu should be dismissed
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  test("highlights show visual hover feedback when onDeleteHighlight is provided", async () => {
+    const onDeleteHighlight = vi.fn().mockResolvedValue(undefined);
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const [hlButton] = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    expect(hlButton.className).toContain("hover:ring-1");
+    expect(hlButton.className).toContain("hover:ring-coral/50");
+  });
+
+  test("error handling: component does not crash when onDeleteHighlight rejects", async () => {
+    const onDeleteHighlight = vi.fn().mockRejectedValue(new Error("Network error"));
+    const highlights: PdfHighlight[] = [
+      {
+        id: "hl-1",
+        page_number: 1,
+        color: "#FFEB3B",
+        text_content: "Saved highlight",
+        rects: [{ x: 0.1, y: 0.2, width: 0.4, height: 0.03 }],
+      },
+    ];
+
+    render(
+      <PdfReader
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
+      />
+    );
+
+    const [hlButton] = await screen.findAllByRole("button", {
+      name: /remove highlight: saved highlight/i,
+    });
+
+    // Right-click and use context menu — should not throw
+    fireEvent.contextMenu(hlButton);
+    const menuItem = await screen.findByRole("menuitem", { name: /remove highlight/i });
+    fireEvent.click(menuItem);
+
+    await waitFor(() => expect(onDeleteHighlight).toHaveBeenCalledWith("hl-1"));
+    // Component should still be in the DOM
+    expect(screen.getByTestId("mock-document")).toBeInTheDocument();
   });
 });
