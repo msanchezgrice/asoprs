@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { createOralExamRealtimeClientSecret } from "@/features/oral-exam/realtime-session";
+import { enforcePaidRateLimit, requireSameOrigin, requireUser } from "@/lib/api-security";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const originError = requireSameOrigin(request);
+  if (originError) return originError;
+
+  const auth = await requireUser({ verifiedEmail: true });
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforcePaidRateLimit(request, auth.user.id, "oral_realtime_token", {
+    user: 6,
+    ip: 12,
+    global: 200,
+    windowSeconds: 600,
+  });
+  if (rateLimit) return rateLimit;
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -21,13 +36,9 @@ export async function POST() {
 
     return NextResponse.json(clientSecret);
   } catch (error) {
+    console.error("OpenAI Realtime token creation failed:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create OpenAI Realtime client secret.",
-      },
+      { error: "Failed to create OpenAI Realtime client secret." },
       { status: 502 }
     );
   }

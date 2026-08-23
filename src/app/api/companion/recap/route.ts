@@ -1,35 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  enforceRateLimit,
+  rejectOversizedBody,
+  requireSameOrigin,
+  requireUser,
+} from "@/lib/api-security";
+import { getServiceClient } from "@/lib/supabase/service";
 
-export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function POST(request: NextRequest) {
+  const requestError = requireSameOrigin(request) ?? rejectOversizedBody(request, 64_000);
+  if (requestError) return requestError;
 
-  const body = await req.json();
+  const auth = await requireUser({ verifiedEmail: true });
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit(auth.user.id, "companion_recap", 20, 3_600);
+  if (rateLimit) return rateLimit;
+
+  const body = await request.json();
   const { session_id, recap_json } = body;
-
-  if (!session_id || !recap_json) {
-    return NextResponse.json({ error: "session_id and recap_json are required" }, { status: 400 });
+  if (
+    typeof session_id !== "string" || !UUID_RE.test(session_id) ||
+    !recap_json || typeof recap_json !== "object" || Array.isArray(recap_json) ||
+    JSON.stringify(recap_json).length > 48_000
+  ) {
+    return NextResponse.json({ error: "Invalid companion recap" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getServiceClient()
     .from("companion_sessions")
-    .update({
-      ended_at: new Date().toISOString(),
-      recap_json,
-    })
+    .update({ ended_at: new Date().toISOString(), recap_json })
     .eq("id", session_id)
-    .eq("user_id", user.id)
-    .select()
-    .single();
+    .eq("user_id", auth.user.id)
+    .select("id, ended_at, recap_json")
+    .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Unable to save companion recap:", error.code);
+    return NextResponse.json({ error: "Unable to save recap" }, { status: 503 });
   }
+  if (!data) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
   return NextResponse.json(data);
 }

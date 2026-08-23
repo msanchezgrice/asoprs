@@ -39,10 +39,16 @@ export async function createGeminiLiveSession(
 
   let reconnectAttempts = 0;
   let shouldReconnect = true;
+  let connectionGeneration = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  const transcriptFlushTimers = new Set<ReturnType<typeof setTimeout>>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let session: any = null;
 
   async function connect() {
+    const generation = ++connectionGeneration;
+    const isCurrent = () => shouldReconnect && connectionGeneration === generation;
+    let connectionClosed = false;
     const systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
     // Transcript buffering — accumulate fragments, emit on turnComplete
@@ -50,7 +56,7 @@ export async function createGeminiLiveSession(
     let modelTranscriptBuffer = "";
     let userFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
-    session = await ai.live.connect({
+    const connectedSession = await ai.live.connect({
       model: config.geminiModel,
       config: {
         responseModalities: [Modality.AUDIO],
@@ -61,9 +67,11 @@ export async function createGeminiLiveSession(
       },
       callbacks: {
         onopen() {
+          if (!isCurrent()) return;
           reconnectAttempts = 0;
         },
         onmessage(msg: LiveServerMessage) {
+          if (!isCurrent()) return;
           // Handle audio chunks from model
           if (msg.serverContent?.modelTurn?.parts) {
             for (const part of msg.serverContent.modelTurn.parts) {
@@ -78,13 +86,20 @@ export async function createGeminiLiveSession(
             userTranscriptBuffer += msg.serverContent.inputTranscription.text;
             callbacks.onTranscript(userTranscriptBuffer, "user");
             // Flush user transcript after 2s of silence
-            if (userFlushTimer) clearTimeout(userFlushTimer);
+            if (userFlushTimer) {
+              clearTimeout(userFlushTimer);
+              transcriptFlushTimers.delete(userFlushTimer);
+            }
             userFlushTimer = setTimeout(() => {
+              if (userFlushTimer) transcriptFlushTimers.delete(userFlushTimer);
+              userFlushTimer = null;
+              if (!isCurrent()) return;
               if (userTranscriptBuffer.trim()) {
                 callbacks.onTurnComplete(userTranscriptBuffer.trim(), "user");
                 userTranscriptBuffer = "";
               }
             }, 2000);
+            transcriptFlushTimers.add(userFlushTimer);
           }
 
           // Buffer model speech transcription
@@ -102,15 +117,32 @@ export async function createGeminiLiveSession(
           }
         },
         onerror(error: Event) {
+          if (!isCurrent()) return;
           callbacks.onError(new Error(String(error)));
         },
         onclose() {
+          connectionClosed = true;
+          if (userFlushTimer) {
+            clearTimeout(userFlushTimer);
+            transcriptFlushTimers.delete(userFlushTimer);
+            userFlushTimer = null;
+          }
+          if (!isCurrent()) return;
+          session = null;
+
           if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
             callbacks.onReconnecting(reconnectAttempts);
             const delay = RECONNECT_BASE_MS * Math.pow(2, reconnectAttempts - 1);
-            setTimeout(() => {
-              if (shouldReconnect) connect();
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null;
+              if (!isCurrent()) return;
+              void connect().catch((error: unknown) => {
+                if (!shouldReconnect) return;
+                callbacks.onError(
+                  error instanceof Error ? error : new Error(String(error)),
+                );
+              });
             }, delay);
           } else {
             callbacks.onDisconnect(
@@ -122,6 +154,13 @@ export async function createGeminiLiveSession(
         },
       },
     });
+
+    if (!isCurrent() || connectionClosed) {
+      connectedSession.close?.();
+      return;
+    }
+
+    session = connectedSession;
   }
 
   await connect();
@@ -142,6 +181,11 @@ export async function createGeminiLiveSession(
     },
     close() {
       shouldReconnect = false;
+      connectionGeneration += 1;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      for (const timer of transcriptFlushTimers) clearTimeout(timer);
+      transcriptFlushTimers.clear();
       session?.close?.();
       session = null;
     },

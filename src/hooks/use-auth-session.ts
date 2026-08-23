@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
+import type { AuthChangeEvent } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export interface SessionUser {
@@ -9,7 +10,17 @@ export interface SessionUser {
   fullName: string | null;
 }
 
-export function useAuthSession() {
+interface AuthSessionValue {
+  user: SessionUser | null;
+  loading: boolean;
+}
+
+const AuthSessionContext = createContext<AuthSessionValue>({
+  user: null,
+  loading: true,
+});
+
+export function AuthSessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,13 +30,18 @@ export function useAuthSession() {
 
     async function loadSession() {
       try {
-        const response = await fetch("/api/auth/session", {
-          cache: "no-store",
-        });
-        const data = await response.json();
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        const authUser = data.user;
 
         if (!cancelled) {
-          setUser(data.user ?? null);
+          setUser(authUser ? {
+            id: authUser.id,
+            email: authUser.email ?? "",
+            fullName: typeof authUser.user_metadata?.full_name === "string"
+              ? authUser.user_metadata.full_name
+              : null,
+          } : null);
         }
       } catch {
         if (!cancelled) {
@@ -40,10 +56,8 @@ export function useAuthSession() {
 
     void loadSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadSession();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
+      if (event !== "INITIAL_SESSION") void loadSession();
     });
 
     return () => {
@@ -52,5 +66,10 @@ export function useAuthSession() {
     };
   }, []);
 
-  return { user, loading };
+  const value = useMemo(() => ({ user, loading }), [user, loading]);
+  return createElement(AuthSessionContext.Provider, { value }, children);
+}
+
+export function useAuthSession() {
+  return useContext(AuthSessionContext);
 }

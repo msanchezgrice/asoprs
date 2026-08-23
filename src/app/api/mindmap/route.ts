@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export const maxDuration = 30;
 
@@ -34,9 +34,16 @@ export async function GET() {
     docMap[d.id] = { title: d.title, category: d.category };
   }
 
-  return NextResponse.json({
-    concepts: conceptsRes.data || [],
-    edges: edgesRes.data || [],
-    documents: docMap,
-  });
+  return NextResponse.json(
+    {
+      concepts: conceptsRes.data || [],
+      edges: edgesRes.data || [],
+      documents: docMap,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    },
+  );
 }

@@ -1,38 +1,38 @@
 import { NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export async function GET() {
   const supabase = getServiceClient();
 
-  const [docsRes, fcRes, mcqRes] = await Promise.all([
+  const [docsRes, countsRes] = await Promise.all([
     supabase
       .from("documents")
       .select("id, title, category, page_count, storage_path, created_at")
       .order("category")
       .order("title"),
-    supabase.from("flashcards").select("id, document_id"),
-    supabase.from("mcq_questions").select("id, document_id"),
+    supabase
+      .from("document_content_counts")
+      .select("document_id, flashcard_count, mcq_count"),
   ]);
 
-  if (docsRes.error) {
-    return NextResponse.json({ error: docsRes.error.message }, { status: 500 });
+  if (docsRes.error || countsRes.error) {
+    return NextResponse.json({ error: "Unable to load document library" }, { status: 503 });
   }
 
-  const fcByDoc: Record<string, number> = {};
-  for (const fc of fcRes.data || []) {
-    fcByDoc[fc.document_id] = (fcByDoc[fc.document_id] || 0) + 1;
-  }
-
-  const mcqByDoc: Record<string, number> = {};
-  for (const q of mcqRes.data || []) {
-    mcqByDoc[q.document_id] = (mcqByDoc[q.document_id] || 0) + 1;
-  }
+  const countsByDoc = new Map(
+    (countsRes.data || []).map((count) => [count.document_id, count]),
+  );
 
   return NextResponse.json(
     (docsRes.data || []).map((d) => ({
       ...d,
-      flashcard_count: fcByDoc[d.id] || 0,
-      mcq_count: mcqByDoc[d.id] || 0,
-    }))
+      flashcard_count: Number(countsByDoc.get(d.id)?.flashcard_count ?? 0),
+      mcq_count: Number(countsByDoc.get(d.id)?.mcq_count ?? 0),
+    })),
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    },
   );
 }

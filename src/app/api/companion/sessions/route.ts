@@ -1,45 +1,52 @@
-import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  enforceRateLimit,
+  requireSameOrigin,
+  requireUser,
+} from "@/lib/api-security";
+import { getServiceClient } from "@/lib/supabase/service";
 
-export async function POST() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function POST(request: NextRequest) {
+  const originError = requireSameOrigin(request);
+  if (originError) return originError;
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser({ verifiedEmail: true });
+  if (!auth.ok) return auth.response;
 
-  const { data, error } = await supabase
+  const rateLimit = await enforceRateLimit(auth.user.id, "companion_session", 20, 3_600);
+  if (rateLimit) return rateLimit;
+
+  const { data, error } = await getServiceClient()
     .from("companion_sessions")
-    .insert({ user_id: user.id })
-    .select()
+    .insert({ user_id: auth.user.id })
+    .select("id, user_id, started_at, ended_at, recap_json, created_at")
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Unable to create companion session:", error.code);
+    return NextResponse.json({ error: "Unable to create session" }, { status: 503 });
   }
 
   return NextResponse.json(data, { status: 201 });
 }
 
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireUser({ verifiedEmail: true });
+  if (!auth.ok) return auth.response;
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await getServiceClient()
     .from("companion_sessions")
-    .select("*")
-    .eq("user_id", user.id)
+    .select("id, started_at, ended_at, recap_json, created_at")
+    .eq("user_id", auth.user.id)
     .order("started_at", { ascending: false })
     .limit(20);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Unable to load companion sessions:", error.code);
+    return NextResponse.json({ error: "Unable to load sessions" }, { status: 503 });
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data ?? [], {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }

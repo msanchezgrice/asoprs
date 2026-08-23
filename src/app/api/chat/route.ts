@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 import { embedText, generateText } from "@/lib/gemini";
+import {
+  enforcePaidRateLimit,
+  rejectOversizedBody,
+  requireSameOrigin,
+  requireUser,
+} from "@/lib/api-security";
 
 type SearchChunk = {
   content: string;
@@ -43,9 +49,27 @@ function rankChunksByKeywordMatch(message: string, chunks: SearchChunk[]) {
 }
 
 export async function POST(req: NextRequest) {
+  const requestError = requireSameOrigin(req) ?? rejectOversizedBody(req, 16_000);
+  if (requestError) return requestError;
+
+  const auth = await requireUser({ verifiedEmail: true });
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforcePaidRateLimit(req, auth.user.id, "chat", {
+    user: 20,
+    ip: 40,
+    global: 1_000,
+    windowSeconds: 600,
+  });
+  if (rateLimit) return rateLimit;
+
   const { message, documentId, category } = await req.json();
 
-  if (!message || typeof message !== "string") {
+  if (
+    !message || typeof message !== "string" || message.length > 4_000 ||
+    (documentId !== undefined && (typeof documentId !== "string" || documentId.length > 100)) ||
+    (category !== undefined && (typeof category !== "string" || category.length > 100))
+  ) {
     return NextResponse.json(
       { error: "message is required" },
       { status: 400 }
@@ -77,7 +101,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (chunksError) {
-        return NextResponse.json({ error: chunksError.message }, { status: 500 });
+        return NextResponse.json({ error: "Search unavailable" }, { status: 503 });
       }
 
       chunks = rankChunksByKeywordMatch(
@@ -101,7 +125,7 @@ export async function POST(req: NextRequest) {
       const { data, error } = await supabase.rpc("search_chunks", rpcParams);
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Search unavailable" }, { status: 503 });
       }
 
       chunks = (data || []) as SearchChunk[];
@@ -136,7 +160,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ answer, sources });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("Chat request failed:", e);
+    return NextResponse.json({ error: "Unable to answer right now" }, { status: 503 });
   }
 }

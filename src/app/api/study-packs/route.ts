@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   buildStudyPackDocx,
@@ -17,8 +17,20 @@ import {
   type StudyPackContentMode,
   type StudyPackOutputFormat,
 } from "@/lib/study-pack";
+import {
+  enforcePaidRateLimit,
+  enforceRateLimit,
+  rejectOversizedBody,
+  requireSameOrigin,
+  requireUser,
+} from "@/lib/api-security";
 
-export const maxDuration = 300;
+export const maxDuration = 180;
+
+const MAX_GENERATION_DOCUMENTS = 5;
+const MAX_GENERATION_ITEMS_PER_DOCUMENT = 50;
+const MAX_SAVED_PACK_BYTES = 750_000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isContentMode(value: unknown): value is StudyPackContentMode {
   return value === "mcq" || value === "flashcards" || value === "both";
@@ -28,7 +40,51 @@ function isOutputFormat(value: unknown): value is StudyPackOutputFormat {
   return value === "docx" || value === "pdf" || value === "in-app";
 }
 
+function isBoundedText(value: unknown, maxLength: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength;
+}
+
+function isValidStudyPack(value: unknown): value is StudyPack {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const pack = value as Partial<StudyPack>;
+  if (
+    !isBoundedText(pack.title, 200) ||
+    !isContentMode(pack.contentMode) ||
+    !Array.isArray(pack.sections) ||
+    pack.sections.length === 0 ||
+    pack.sections.length > MAX_GENERATION_DOCUMENTS ||
+    JSON.stringify(value).length > MAX_SAVED_PACK_BYTES
+  ) {
+    return false;
+  }
+
+  return pack.sections.every((section) => {
+    if (
+      !section || typeof section !== "object" ||
+      !isBoundedText(section.title, 200) ||
+      !Array.isArray(section.mcqs) || section.mcqs.length > MAX_GENERATION_ITEMS_PER_DOCUMENT ||
+      !Array.isArray(section.flashcards) || section.flashcards.length > MAX_GENERATION_ITEMS_PER_DOCUMENT
+    ) {
+      return false;
+    }
+
+    return section.mcqs.every((mcq) =>
+      mcq && typeof mcq === "object" &&
+      isBoundedText(mcq.question, 2_000) &&
+      Array.isArray(mcq.options) && mcq.options.length === 3 &&
+      mcq.options.every((option) => isBoundedText(option, 1_000)) &&
+      Number.isInteger(mcq.correctIndex) && mcq.correctIndex >= 0 && mcq.correctIndex <= 2 &&
+      (mcq.explanation === undefined || isBoundedText(mcq.explanation, 4_000))
+    ) && section.flashcards.every((card) =>
+      card && typeof card === "object" &&
+      isBoundedText(card.front, 2_000) &&
+      isBoundedText(card.back, 4_000)
+    );
+  });
+}
+
 async function persistStudyPack(params: {
+  userId: string;
   outputFormat: StudyPackOutputFormat;
   selectedDocumentIds: string[];
   instructions: string;
@@ -39,19 +95,10 @@ async function persistStudyPack(params: {
   };
   packText: string;
 }) {
-  const userDb = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await userDb.auth.getUser();
-
-  if (!user) {
-    return { id: null, error: null };
-  }
-
-  const { data: inserted, error } = await userDb
+  const { data: inserted, error } = await getServiceClient()
     .from("user_study_packs")
     .insert({
-      user_id: user.id,
+      user_id: params.userId,
       title: params.pack.title,
       content_mode: params.pack.contentMode,
       section_titles: params.pack.sections.map((section) => section.title),
@@ -65,8 +112,8 @@ async function persistStudyPack(params: {
     .single();
 
   if (error) {
-    console.error("Failed to persist study pack", error);
-    return { id: null, error: error.message };
+    console.error("Failed to persist study pack", error.code);
+    return { id: null, error: "Unable to save study pack" };
   }
 
   return { id: inserted?.id ?? null, error: null };
@@ -88,7 +135,8 @@ export async function GET() {
   const { data, error } = await userDb
     .from("user_study_packs")
     .select("id, title, content_mode, section_titles, output_format, created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) {
     console.error("Failed to load saved study packs", error);
@@ -110,6 +158,20 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const requestError = requireSameOrigin(request) ?? rejectOversizedBody(request, 32_000);
+    if (requestError) return requestError;
+
+    const auth = await requireUser({ verifiedEmail: true });
+    if (!auth.ok) return auth.response;
+
+    const rateLimit = await enforcePaidRateLimit(request, auth.user.id, "study_pack_generation", {
+      user: 5,
+      ip: 10,
+      global: 100,
+      windowSeconds: 3_600,
+    });
+    if (rateLimit) return rateLimit;
+
     const body = (await request.json()) as {
       selectedDocumentIds?: string[];
       contentMode?: StudyPackContentMode;
@@ -122,8 +184,12 @@ export async function POST(request: NextRequest) {
     if (
       !Array.isArray(body.selectedDocumentIds) ||
       body.selectedDocumentIds.length === 0 ||
+      body.selectedDocumentIds.length > MAX_GENERATION_DOCUMENTS ||
+      new Set(body.selectedDocumentIds).size !== body.selectedDocumentIds.length ||
+      body.selectedDocumentIds.some((id) => typeof id !== "string" || id.length > 100) ||
       !isContentMode(body.contentMode) ||
-      !isOutputFormat(body.outputFormat)
+      !isOutputFormat(body.outputFormat) ||
+      (body.instructions !== undefined && (typeof body.instructions !== "string" || body.instructions.length > 2_000))
     ) {
       return NextResponse.json(
         { error: "Invalid study pack request." },
@@ -131,13 +197,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const mcqCount = sanitizeStudyPackCount(
-      body.mcqCount,
-      DEFAULT_STUDY_PACK_MCQ_COUNT
+    const mcqCount = Math.min(
+      MAX_GENERATION_ITEMS_PER_DOCUMENT,
+      sanitizeStudyPackCount(body.mcqCount, DEFAULT_STUDY_PACK_MCQ_COUNT),
     );
-    const flashcardCount = sanitizeStudyPackCount(
-      body.flashcardCount,
-      DEFAULT_STUDY_PACK_FLASHCARD_COUNT
+    const flashcardCount = Math.min(
+      MAX_GENERATION_ITEMS_PER_DOCUMENT,
+      sanitizeStudyPackCount(body.flashcardCount, DEFAULT_STUDY_PACK_FLASHCARD_COUNT),
     );
     const instructions =
       body.instructions?.trim() ||
@@ -154,7 +220,7 @@ export async function POST(request: NextRequest) {
       .in("id", body.selectedDocumentIds);
 
     if (docsError) {
-      return NextResponse.json({ error: docsError.message }, { status: 500 });
+      return NextResponse.json({ error: "Unable to load documents" }, { status: 503 });
     }
 
     if (!docs || docs.length !== body.selectedDocumentIds.length) {
@@ -171,7 +237,7 @@ export async function POST(request: NextRequest) {
       .order("chunk_index");
 
     if (chunkError) {
-      return NextResponse.json({ error: chunkError.message }, { status: 500 });
+      return NextResponse.json({ error: "Unable to load document content" }, { status: 503 });
     }
 
     const chunksByDoc = new Map<string, string[]>();
@@ -209,7 +275,14 @@ export async function POST(request: NextRequest) {
       flashcardCount,
     });
     const packText = buildStudyPackText(pack);
+    if (!isValidStudyPack(pack) || packText.length > MAX_SAVED_PACK_BYTES) {
+      return NextResponse.json(
+        { error: "Generated study pack exceeded safe limits." },
+        { status: 422 },
+      );
+    }
     const persisted = await persistStudyPack({
+      userId: auth.user.id,
       outputFormat: body.outputFormat,
       selectedDocumentIds: body.selectedDocumentIds,
       instructions,
@@ -253,26 +326,21 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to generate study pack.";
     console.error("Study pack generation failed", error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate study pack." }, { status: 503 });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userDb = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await userDb.auth.getUser();
+    const requestError = requireSameOrigin(request) ?? rejectOversizedBody(request, 800_000);
+    if (requestError) return requestError;
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Authentication required." },
-        { status: 401 }
-      );
-    }
+    const auth = await requireUser({ verifiedEmail: true });
+    if (!auth.ok) return auth.response;
+
+    const rateLimit = await enforceRateLimit(auth.user.id, "study_pack_save", 20, 3_600);
+    if (rateLimit) return rateLimit;
 
     const body = (await request.json()) as {
       pack?: StudyPack;
@@ -282,7 +350,18 @@ export async function PATCH(request: NextRequest) {
       instructions?: string;
     };
 
-    if (!body.pack || !body.pack.title || !isOutputFormat(body.outputFormat)) {
+    if (
+      !isValidStudyPack(body.pack) ||
+      !isOutputFormat(body.outputFormat) ||
+      (body.text !== undefined && (typeof body.text !== "string" || body.text.length > MAX_SAVED_PACK_BYTES)) ||
+      (body.instructions !== undefined && (typeof body.instructions !== "string" || body.instructions.length > 2_000)) ||
+      (body.selectedDocumentIds !== undefined && (
+        !Array.isArray(body.selectedDocumentIds) ||
+        body.selectedDocumentIds.length > MAX_GENERATION_DOCUMENTS ||
+        new Set(body.selectedDocumentIds).size !== body.selectedDocumentIds.length ||
+        body.selectedDocumentIds.some((id) => typeof id !== "string" || !UUID_RE.test(id))
+      ))
+    ) {
       return NextResponse.json(
         { error: "Invalid save request." },
         { status: 400 }
@@ -290,10 +369,14 @@ export async function PATCH(request: NextRequest) {
     }
 
     const packText = body.text || buildStudyPackText(body.pack);
-    const { data: inserted, error } = await userDb
+    if (packText.length > MAX_SAVED_PACK_BYTES) {
+      return NextResponse.json({ error: "Study pack is too large." }, { status: 413 });
+    }
+
+    const { data: inserted, error } = await getServiceClient()
       .from("user_study_packs")
       .insert({
-        user_id: user.id,
+        user_id: auth.user.id,
         title: body.pack.title,
         content_mode: body.pack.contentMode,
         section_titles: body.pack.sections.map((s) => s.title),
@@ -307,14 +390,13 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Failed to save study pack", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Failed to save study pack", error.code);
+      return NextResponse.json({ error: "Unable to save study pack" }, { status: 503 });
     }
 
     return NextResponse.json({ id: inserted.id });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to save study pack.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Failed to save study pack:", error instanceof Error ? error.name : "unknown");
+    return NextResponse.json({ error: "Failed to save study pack." }, { status: 503 });
   }
 }

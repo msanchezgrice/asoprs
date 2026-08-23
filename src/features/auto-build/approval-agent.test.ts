@@ -167,10 +167,10 @@ describe("approval-agent", () => {
       expect(result.reason).toContain("disabled");
     });
 
-    it("auto_all mode approves regardless of risk score", () => {
+    it("auto_all mode cannot override an AI escalation", () => {
       const config = { ...baseConfig, mode: "auto_all" as const };
       const result = applyConfigOverrides("escalate", 80, lowRisk, config);
-      expect(result.decision).toBe("approve");
+      expect(result.decision).toBe("escalate");
     });
 
     it("auto_low_risk passes through request_changes from AI", () => {

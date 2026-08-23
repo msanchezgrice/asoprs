@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
+vi.mock("@/lib/api-security", () => ({
+  enforcePaidRateLimit: vi.fn().mockResolvedValue(null),
+  requireSameOrigin: vi.fn().mockReturnValue(null),
+  requireUser: vi.fn().mockResolvedValue({
+    ok: true,
+    user: { id: "test-user", email_confirmed_at: "2026-01-01T00:00:00Z" },
+  }),
+}));
+
 const ORIGINAL_OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 describe("/api/oral-exam/realtime-token", () => {
@@ -12,7 +21,7 @@ describe("/api/oral-exam/realtime-token", () => {
   it("returns a clear unavailable response when the server key is missing", async () => {
     delete process.env.OPENAI_API_KEY;
 
-    const response = await POST();
+    const response = await POST(new Request("http://localhost/api/oral-exam/realtime-token", { method: "POST" }));
     const payload = await response.json();
 
     expect(response.status).toBe(503);
@@ -27,7 +36,7 @@ describe("/api/oral-exam/realtime-token", () => {
     });
     vi.stubGlobal("fetch", fetchImpl);
 
-    const response = await POST();
+    const response = await POST(new Request("http://localhost/api/oral-exam/realtime-token", { method: "POST" }));
     const payload = await response.json();
 
     expect(response.status).toBe(200);

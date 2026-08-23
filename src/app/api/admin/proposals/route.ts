@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
+import { requireAdmin, requireSameOrigin, rejectOversizedBody } from "@/lib/api-security";
 import { getAutonomousConfig } from "@/features/auto-build/daily-cap";
 import { generateBuildPlan, executeBuildPlan } from "@/features/auto-build/build-proposal";
 
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const db = getServiceClient();
   const { data: briefs, error } = await db
@@ -26,16 +23,22 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const requestError = requireSameOrigin(req) ?? rejectOversizedBody(req, 32_000);
+  if (requestError) return requestError;
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const body = await req.json();
   const { brief_id, proposal_index, action, reason, feature_context } = body;
 
-  if (!brief_id || proposal_index === undefined || !action) {
+  if (
+    typeof brief_id !== "string" || brief_id.length > 100 ||
+    !Number.isInteger(proposal_index) || proposal_index < 0 || proposal_index > 100 ||
+    !["approve", "reject"].includes(action) ||
+    (reason !== undefined && (typeof reason !== "string" || reason.length > 2_000)) ||
+    (feature_context !== undefined && (!feature_context || typeof feature_context !== "object" || Array.isArray(feature_context)))
+  ) {
     return NextResponse.json({ error: "brief_id, proposal_index, and action are required" }, { status: 400 });
   }
 

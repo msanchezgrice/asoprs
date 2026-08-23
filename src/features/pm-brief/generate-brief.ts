@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY ?? "",
@@ -244,15 +244,20 @@ async function callClaudeForBrief(prompt: string): Promise<Record<string, unknow
 
 export async function generateGlobalBrief(): Promise<PMBriefResult> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { feedback: userFeedback, sessions, turns } = await gatherFeedbackData(since, undefined, "user");
-  const { feedback: builderFeedback } = await gatherFeedbackData(since, undefined, "builder");
+  const { data: builderFeedback, error } = await getServiceClient()
+    .from("feedback_entries")
+    .select("tag, screen, page_category, free_text, created_at")
+    .eq("feedback_type", "builder")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-  const feedbackCount = userFeedback.length + builderFeedback.length;
-  const sessionCount = sessions.length;
+  if (error) throw new Error(`Unable to load builder feedback: ${error.code}`);
+  const feedbackCount = builderFeedback?.length ?? 0;
 
-  if (feedbackCount === 0 && sessionCount === 0) {
+  if (feedbackCount === 0) {
     return {
-      summary: "No user activity in the last 24 hours. No proposals to generate.",
+      summary: "No builder feedback in the last 24 hours. No proposals to generate.",
       top_friction_points: [],
       unused_features: [],
       proposals: [],
@@ -260,18 +265,18 @@ export async function generateGlobalBrief(): Promise<PMBriefResult> {
     };
   }
 
-  const { feedbackSummary, recapSummary, userTranscripts } = buildPromptContext(userFeedback, sessions, turns);
-
-  // Build builder feedback section
-  const builderFeedbackSummary = builderFeedback
-    .map((f) => `[${f.tag}] on ${f.screen} (${f.page_category ?? "unknown"}): ${f.free_text ?? "(no comment)"} (${f.created_at})`)
+  // Only explicit feedback from trusted admin/builder accounts is sent to the
+  // model. Ordinary users' comments, recaps, screenshots, and transcripts are
+  // never included in this product-management workflow.
+  const builderFeedbackSummary = (builderFeedback ?? [])
+    .map((feedback) =>
+      `[${String(feedback.tag).slice(0, 100)}] on ${String(feedback.screen).slice(0, 100)} ` +
+      `(${String(feedback.page_category ?? "unknown").slice(0, 100)}): ` +
+      `${String(feedback.free_text ?? "(no comment)").slice(0, 4000)} (${feedback.created_at})`
+    )
     .join("\n");
 
-  let prompt = buildBriefPrompt(feedbackSummary, recapSummary, userTranscripts, "global");
-
-  if (builderFeedbackSummary) {
-    prompt += `\n\nBUILDER FEEDBACK (platform improvements from admin/builder users — classify with HIGHER confidence):\n${builderFeedbackSummary}`;
-  }
+  const prompt = buildBriefPrompt(builderFeedbackSummary, "", "", "global");
 
   let parsed: PMBriefResult;
   try {
@@ -285,7 +290,7 @@ export async function generateGlobalBrief(): Promise<PMBriefResult> {
         ? briefData.unused_features.filter((s: unknown) => typeof s === "string")
         : [],
       proposals: validateProposals(briefData.proposals, "global"),
-      raw_data: { feedback_count: feedbackCount, session_count: sessionCount, total_turns: turns.length },
+      raw_data: { feedback_count: feedbackCount, session_count: 0, total_turns: 0 },
     };
   } catch {
     parsed = {
@@ -293,7 +298,7 @@ export async function generateGlobalBrief(): Promise<PMBriefResult> {
       top_friction_points: [],
       unused_features: [],
       proposals: [],
-      raw_data: { feedback_count: feedbackCount, session_count: sessionCount, total_turns: turns.length },
+      raw_data: { feedback_count: feedbackCount, session_count: 0, total_turns: 0 },
     };
   }
 
@@ -312,9 +317,6 @@ export async function generateGlobalBrief(): Promise<PMBriefResult> {
 
 export async function generateUserBrief(userId: string): Promise<PMBriefResult> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { feedback, sessions, turns } = await gatherFeedbackData(since, userId);
-
-  // Check if user is a builder
   const supabaseForRole = getServiceClient();
   const { data: roleData } = await supabaseForRole
     .from("builder_roles")
@@ -322,6 +324,18 @@ export async function generateUserBrief(userId: string): Promise<PMBriefResult> 
     .eq("user_id", userId)
     .single();
   const isBuilder = roleData?.role === "admin" || roleData?.role === "builder";
+
+  if (!isBuilder) {
+    return {
+      summary: "Personal PM analysis is disabled for ordinary users.",
+      top_friction_points: [],
+      unused_features: [],
+      proposals: [],
+      raw_data: { feedback_count: 0, session_count: 0, total_turns: 0 },
+    };
+  }
+
+  const { feedback, sessions, turns } = await gatherFeedbackData(since, userId, "builder");
 
   const feedbackCount = feedback.length;
   const sessionCount = sessions.length;

@@ -3,26 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, ThumbsUp, Minus, ThumbsDown, Sparkles } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 interface ShippedChange {
   id: string;
   title: string;
   description: string;
   origin_type: string;
-  origin_trace: {
-    evidence: string;
-    confidence: string;
-    delivery_strategy?: string;
-    target_user_id?: string;
-  } | null;
-  feature_context: {
-    delivery_strategy?: string;
-    scope?: string;
-    target_user_id?: string;
-    [key: string]: unknown;
-  } | null;
   shipped_at: string;
+  personal: boolean;
+  delivery_strategy: string | null;
 }
 
 const ORIGIN_BADGES: Record<string, { label: string; className: string }> = {
@@ -110,40 +99,38 @@ export function ChangeTour() {
   useEffect(() => {
     if (!user) return;
 
-    const supabase = createBrowserSupabaseClient();
     const lastSeenKey = `oculoprep_last_seen_changes_${user.id}`;
     const lastSeen = localStorage.getItem(lastSeenKey);
 
     // Load "tried it" state from localStorage
     const triedKey = `oculoprep_tried_changes_${user.id}`;
     const storedTried = localStorage.getItem(triedKey);
+    let triedTimer: ReturnType<typeof setTimeout> | null = null;
     if (storedTried) {
       try {
-        setTriedIt(new Set(JSON.parse(storedTried)));
+        const parsed = JSON.parse(storedTried) as string[];
+        triedTimer = setTimeout(() => setTriedIt(new Set(parsed)), 0);
       } catch { /* ignore parse errors */ }
     }
 
     async function loadChanges() {
-      let query = supabase
-        .from("shipped_changes")
-        .select("*")
-        .eq("status", "active")
-        .or("feature_context->>build_status.eq.completed,feature_context->>build_status.eq.config_applied")
-        .order("shipped_at", { ascending: false })
-        .limit(5);
+      const query = lastSeen ? `?after=${encodeURIComponent(lastSeen)}` : "";
+      const response = await fetch(`/api/shipped-changes${query}`, {
+        credentials: "same-origin",
+      });
+      if (!response.ok) return;
 
-      if (lastSeen) {
-        query = query.gt("shipped_at", lastSeen);
-      }
-
-      const { data } = await query;
-      if (data && data.length > 0) {
+      const data = await response.json() as ShippedChange[];
+      if (data.length > 0) {
         setChanges(data);
         setVisible(true);
       }
     }
 
     void loadChanges();
+    return () => {
+      if (triedTimer) clearTimeout(triedTimer);
+    };
   }, [user]);
 
   const dismiss = useCallback(() => {
@@ -165,15 +152,13 @@ export function ChangeTour() {
 
   const submitRating = useCallback(async (changeId: string, rating: "better" | "same" | "worse") => {
     if (!user) return;
-    const supabase = createBrowserSupabaseClient();
-
-    await supabase.from("change_feedback").insert({
-      change_id: changeId,
-      user_id: user.id,
-      rating,
+    const response = await fetch("/api/change-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ change_id: changeId, rating }),
     });
 
-    setRated((prev) => new Set(prev).add(changeId));
+    if (response.ok) setRated((prev) => new Set(prev).add(changeId));
   }, [user]);
 
   if (!visible || changes.length === 0) return null;
@@ -205,9 +190,8 @@ export function ChangeTour() {
             const canRate = isOlderThan24Hours(change.shipped_at) || hasTried;
 
             // Scope and strategy badges
-            const targetUserId = change.origin_trace?.target_user_id ?? change.feature_context?.target_user_id;
-            const isPersonal = targetUserId && user && targetUserId === user.id;
-            const deliveryStrategy = change.feature_context?.delivery_strategy ?? change.origin_trace?.delivery_strategy;
+            const isPersonal = change.personal;
+            const deliveryStrategy = change.delivery_strategy;
             const strategyBadge = deliveryStrategy ? DELIVERY_STRATEGY_BADGES[deliveryStrategy] : null;
 
             const { what, where } = friendlyDescription(change);
@@ -239,13 +223,6 @@ export function ChangeTour() {
                 <h3 className="text-sm font-semibold text-navy mb-1">{change.title}</h3>
                 <p className="text-xs text-navy/80 mb-1">{what}</p>
                 <p className="text-[10px] text-warm-gray italic mb-2">{where}</p>
-
-                {change.origin_trace?.evidence && (
-                  <div className="bg-ivory/50 rounded px-3 py-2 border-l-2 border-indigo-300 mb-3">
-                    <span className="text-[10px] text-warm-gray block mb-0.5">WHY THIS SHIPPED:</span>
-                    <span className="text-xs text-navy/80 italic">{change.origin_trace.evidence}</span>
-                  </div>
-                )}
 
                 {isRated ? (
                   <p className="text-xs text-emerald-600 font-medium">Thanks for the feedback!</p>

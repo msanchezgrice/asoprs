@@ -4,7 +4,7 @@ import {
   createSupabaseDailyStudyRepository,
   loadDailyStudyContent,
 } from "@/features/daily-study-email/load-daily-study-content";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 

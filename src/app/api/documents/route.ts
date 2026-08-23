@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { collectSupabasePages } from "@/lib/supabase/paginate";
 
 export async function GET() {
   const contentDb = getServiceClient();
@@ -9,32 +10,39 @@ export async function GET() {
     data: { user },
   } = await userDb.auth.getUser();
 
-  const [docsRes, flashcardsRes, mcqRes, sessionsRes, progressRes] = await Promise.all([
+  const [docsRes, countsRes, sessionsRes, progressRes] = await Promise.all([
     contentDb
       .from("documents")
       .select("id, title, category, page_count, storage_path, created_at")
       .order("category")
       .order("title"),
-    contentDb.from("flashcards").select("id, document_id"),
-    contentDb.from("mcq_questions").select("id, document_id"),
+    contentDb
+      .from("document_content_counts")
+      .select("document_id, flashcard_count, mcq_count"),
     user
-      ? userDb.from("user_quiz_sessions").select("document_id")
+      ? collectSupabasePages<{ document_id: string }>((from, to) =>
+          userDb.from("user_quiz_sessions").select("document_id").range(from, to)
+        )
       : Promise.resolve({ data: [], error: null }),
     user
-      ? userDb.from("user_flashcard_progress").select("document_id, status")
+      ? collectSupabasePages<{ document_id: string; status: string }>((from, to) =>
+          userDb.from("user_flashcard_progress").select("document_id, status").range(from, to)
+        )
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (docsRes.error) {
-    return NextResponse.json({ error: docsRes.error.message }, { status: 500 });
+  if (docsRes.error || countsRes.error || sessionsRes.error || progressRes.error) {
+    return NextResponse.json({ error: "Unable to load document library" }, { status: 503 });
   }
 
   const flashcardsByDoc: Record<string, { total: number; mastered: number }> = {};
-  for (const flashcard of flashcardsRes.data || []) {
-    if (!flashcardsByDoc[flashcard.document_id]) {
-      flashcardsByDoc[flashcard.document_id] = { total: 0, mastered: 0 };
-    }
-    flashcardsByDoc[flashcard.document_id].total++;
+  const mcqByDoc: Record<string, number> = {};
+  for (const count of countsRes.data || []) {
+    flashcardsByDoc[count.document_id] = {
+      total: Number(count.flashcard_count),
+      mastered: 0,
+    };
+    mcqByDoc[count.document_id] = Number(count.mcq_count);
   }
 
   for (const progress of progressRes.data || []) {
@@ -45,11 +53,6 @@ export async function GET() {
     if (progress.status === "mastered" || progress.status === "learning") {
       flashcardsByDoc[progress.document_id].mastered++;
     }
-  }
-
-  const mcqByDoc: Record<string, number> = {};
-  for (const question of mcqRes.data || []) {
-    mcqByDoc[question.document_id] = (mcqByDoc[question.document_id] || 0) + 1;
   }
 
   const docsWithSessions = new Set(

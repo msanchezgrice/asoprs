@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
+import { requireCronOrAdmin, requireSameOrigin } from "@/lib/api-security";
 import { getDailyImprovementCount, getAutonomousConfig } from "@/features/auto-build/daily-cap";
 import { runApprovalAgent, type ApprovalConfig } from "@/features/auto-build/approval-agent";
 
@@ -54,21 +54,11 @@ async function withConcurrency<T>(
 }
 
 export async function POST(req: NextRequest) {
-  // Auth check: cron secret OR authenticated user
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
 
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    // Cron-authenticated, proceed
-  } else {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const auth = await requireCronOrAdmin(req);
+  if (!auth.ok) return auth.response;
 
   const githubToken = process.env.GITHUB_TOKEN;
   if (!githubToken) {

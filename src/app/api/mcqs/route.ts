@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export async function GET(req: NextRequest) {
   const docId = req.nextUrl.searchParams.get("docId");
-  const limit = parseInt(req.nextUrl.searchParams.get("limit") || "100");
+  const requestedLimit = Number.parseInt(req.nextUrl.searchParams.get("limit") || "100", 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(250, Math.max(1, requestedLimit))
+    : 100;
   const supabase = getServiceClient();
 
   let query = supabase

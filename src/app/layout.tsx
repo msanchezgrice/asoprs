@@ -1,21 +1,22 @@
+/* eslint-disable @next/next/no-page-custom-font */
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
-import { AuthSessionBootstrap } from "@/components/auth/auth-session-bootstrap";
 import { PostHogProvider } from "@/providers/posthog-provider";
 import { CompanionWidget } from "@/features/companion/companion-widget";
 import { ChangeTour } from "@/features/change-tour/change-tour";
 import { AnnoyanceInbox } from "@/features/feedback/annoyance-inbox";
 import { UserFeatureSlot } from "@/components/user-feature-slot";
+import { AuthSessionProvider } from "@/hooks/use-auth-session";
 
 const SITE_NAME = "ASOPRS Study Portal";
 const SITE_DESCRIPTION =
   "Read the ASOPRS library, generate flashcards and quizzes, build study packs, and track your board-review progress in one place.";
 
 const rawSiteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-  process.env.VERCEL_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+  process.env.VERCEL_URL ||
   `http://localhost:${process.env.PORT ?? 3000}`;
 
 const metadataBase = new URL(
@@ -85,15 +86,16 @@ export default function RootLayout({
       </head>
       <body className="font-[Instrument_Sans] antialiased paper-grain">
         <PostHogProvider>
-          <AuthSessionBootstrap />
-          <div className="min-h-dvh pb-20 md:pb-0 md:pl-(--sidebar-width,256px)">
-            {children}
-          </div>
-          <CompanionWidget />
-          <ChangeTour />
-          <AnnoyanceInbox screen="global" />
-          <UserFeatureSlot name="global-overlay" />
-          <BottomNav />
+          <AuthSessionProvider>
+            <div className="min-h-dvh pb-20 md:pb-0 md:pl-(--sidebar-width,256px)">
+              {children}
+            </div>
+            <CompanionWidget />
+            <ChangeTour />
+            <AnnoyanceInbox screen="global" />
+            <UserFeatureSlot name="global-overlay" />
+            <BottomNav />
+          </AuthSessionProvider>
         </PostHogProvider>
       </body>
     </html>

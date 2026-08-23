@@ -12,7 +12,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 // Mock Supabase with chainable builder
-vi.mock("@/lib/supabase", () => ({
+vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({
     from: (table: string) => {
       const chain: Record<string, unknown> = {};

@@ -14,18 +14,23 @@ import {
   saveTurn,
   saveEvent,
   saveScreenshot,
+  deleteScreenshot,
   buildSessionRecap,
 } from "./session-store";
 import type { CompanionTurn, CompanionEvent, CaptureMode } from "./types";
 
-const ENV_GEMINI_KEY = process.env.NEXT_PUBLIC_currentKey ?? "";
 const GEMINI_MODEL = "gemini-3.1-flash-live-preview";
-const CAPTURE_INTERVAL_MS = 5000;
+const CAPTURE_INTERVAL_MS = 30_000;
+const MAX_STORED_SCREENSHOTS_PER_SESSION = 60;
 const STORAGE_KEY = "oculoprep_gemini_api_key";
 
-function getStoredApiKey(): string {
-  if (typeof window === "undefined") return ENV_GEMINI_KEY;
-  return localStorage.getItem(STORAGE_KEY) ?? ENV_GEMINI_KEY;
+function storageKeyForUser(userId: string): string {
+  return `${STORAGE_KEY}:${userId}`;
+}
+
+function getStoredApiKey(userId: string | undefined): string {
+  if (typeof window === "undefined" || !userId) return "";
+  return sessionStorage.getItem(storageKeyForUser(userId)) ?? "";
 }
 
 type CompanionState = "idle" | "connecting" | "listening" | "error" | "needs_key";
@@ -50,27 +55,93 @@ export function CompanionWidget() {
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playCtxRef = useRef<AudioContext | null>(null);
+  const micCtxRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const displayStreamRef = useRef<MediaStream | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
+  const captureInFlightRef = useRef(false);
+  const storedScreenshotCountRef = useRef(0);
+  const lifecycleRef = useRef(0);
+  const previousUserIdRef = useRef<string | null>(null);
+
+  const releaseLiveResources = useCallback(() => {
+    lifecycleRef.current += 1;
+    sessionIdRef.current = null;
+
+    if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
+    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+    captureIntervalRef.current = null;
+    durationIntervalRef.current = null;
+    captureInFlightRef.current = false;
+
+    const liveSession = sessionRef.current;
+    sessionRef.current = null;
+    liveSession?.close();
+
+    const playbackContext = playCtxRef.current;
+    playCtxRef.current = null;
+    void playbackContext?.close().catch(() => {});
+
+    const microphoneContext = micCtxRef.current;
+    micCtxRef.current = null;
+    void microphoneContext?.close().catch(() => {});
+
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+    displayStreamRef.current?.getTracks().forEach((track) => track.stop());
+    displayStreamRef.current = null;
+
+    if (videoRef.current) videoRef.current.srcObject = null;
+    nextPlayTimeRef.current = 0;
+  }, []);
+
+  const userId = user?.id;
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+    if (previousUserId && previousUserId !== userId) {
+      sessionStorage.removeItem(storageKeyForUser(previousUserId));
+    }
+    // Never carry the historical unscoped key across account boundaries.
+    sessionStorage.removeItem(STORAGE_KEY);
+    previousUserIdRef.current = userId ?? null;
+
+    releaseLiveResources();
+    setState("idle");
+    setCaptureMode("html2canvas");
+    setApiKey("");
+    setShowKeyInput(false);
+    setSessionDuration(0);
+    setFrustrationCount(0);
+    setFeatureRequestCount(0);
+    setTranscript([]);
+  }, [userId, releaseLiveResources]);
 
   const startCompanion = useCallback(async () => {
-    const currentKey = getStoredApiKey();
-    if (!user || !currentKey) {
-      if (user) setState("needs_key");
+    if (!user) return;
+
+    const currentKey = getStoredApiKey(user.id);
+    if (!currentKey) {
+      setState("needs_key");
       return;
     }
 
+    releaseLiveResources();
+    const generation = lifecycleRef.current;
+    const isCurrent = () => lifecycleRef.current === generation;
     setState("connecting");
 
-    const dbSession = await createSession();
-    if (!dbSession) {
-      setState("error");
-      return;
-    }
-    sessionIdRef.current = dbSession.id;
-    turnsRef.current = [];
-    eventsRef.current = [];
-
     try {
+      const dbSession = await createSession();
+      if (!isCurrent()) return;
+      if (!dbSession) {
+        setState("error");
+        return;
+      }
+
+      sessionIdRef.current = dbSession.id;
+      turnsRef.current = [];
+      eventsRef.current = [];
+      storedScreenshotCountRef.current = 0;
       playCtxRef.current = new AudioContext({ sampleRate: 24000 });
 
       const session = await createGeminiLiveSession(
@@ -83,6 +154,7 @@ export function CompanionWidget() {
         },
         {
           onAudioChunk(base64Audio) {
+            if (!isCurrent()) return;
             const playCtx = playCtxRef.current;
             if (!playCtx) return;
             if (playCtx.state === "suspended") playCtx.resume();
@@ -112,6 +184,7 @@ export function CompanionWidget() {
             }
           },
           onTranscript(text, role) {
+            if (!isCurrent()) return;
             // Live preview of buffered transcript (updates as words come in)
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -125,6 +198,10 @@ export function CompanionWidget() {
             });
           },
           onTurnComplete(fullText, role) {
+            if (!isCurrent()) return;
+            const activeSessionId = sessionIdRef.current;
+            if (!activeSessionId) return;
+
             // Complete turn — save to DB and mark as complete in transcript
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -138,7 +215,7 @@ export function CompanionWidget() {
 
             const turn: CompanionTurn = {
               id: crypto.randomUUID(),
-              session_id: sessionIdRef.current!,
+              session_id: activeSessionId,
               role,
               transcript: fullText,
               prompt_kind: role === "user" ? "user-voice" : "model-response",
@@ -146,7 +223,7 @@ export function CompanionWidget() {
               ended_at: now.toISOString(),
             };
             turnsRef.current.push(turn);
-            void saveTurn(sessionIdRef.current!, turn);
+            void saveTurn(activeSessionId, turn);
 
             const lower = fullText.toLowerCase();
             if (lower.includes("i wish") || lower.includes("why can't") || lower.includes("this should")) {
@@ -158,38 +235,67 @@ export function CompanionWidget() {
           },
           onToolCall() {},
           onDisconnect() {
-            setState("idle");
+            if (!isCurrent()) return;
+            releaseLiveResources();
+            setState((current) => current === "error" ? "error" : "idle");
           },
           onReconnecting() {},
           onError() {
+            if (!isCurrent()) return;
+            releaseLiveResources();
             setState("error");
           },
         },
       );
 
+      if (!isCurrent()) {
+        session.close();
+        return;
+      }
       sessionRef.current = session;
-      setState("listening");
 
       // Start screen capture interval
       captureIntervalRef.current = setInterval(async () => {
-        const frame = await captureFrame(
-          captureMode,
-          null,
-          videoRef.current,
-        );
-        if (frame && sessionIdRef.current) {
-          session.sendVideo(frame);
-          const url = await saveScreenshot(sessionIdRef.current, frame);
+        if (
+          !isCurrent() ||
+          captureInFlightRef.current ||
+          storedScreenshotCountRef.current >= MAX_STORED_SCREENSHOTS_PER_SESSION
+        ) return;
+
+        captureInFlightRef.current = true;
+        try {
+          const frame = await captureFrame(
+            captureMode,
+            null,
+            videoRef.current,
+          );
+          if (!isCurrent() || !frame) return;
+
+          const activeSessionId = sessionIdRef.current;
+          const activeSession = sessionRef.current;
+          if (!activeSessionId || !activeSession) return;
+
+          activeSession.sendVideo(frame);
+          const privateObjectPath = await saveScreenshot(activeSessionId, frame);
+          if (!isCurrent()) {
+            if (privateObjectPath) void deleteScreenshot(privateObjectPath);
+            return;
+          }
+          if (!privateObjectPath || sessionIdRef.current !== activeSessionId) return;
+
+          storedScreenshotCountRef.current += 1;
           const event: CompanionEvent = {
             id: crypto.randomUUID(),
-            session_id: sessionIdRef.current,
+            session_id: activeSessionId,
             event_type: "screenshot",
             payload: {},
-            screenshot_url: url,
+            screenshot_url: privateObjectPath,
             occurred_at: new Date().toISOString(),
           };
           eventsRef.current.push(event);
-          void saveEvent(sessionIdRef.current, event);
+          void saveEvent(activeSessionId, event);
+        } finally {
+          if (isCurrent()) captureInFlightRef.current = false;
         }
       }, CAPTURE_INTERVAL_MS);
 
@@ -197,9 +303,20 @@ export function CompanionWidget() {
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
+      if (!isCurrent()) {
+        micStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      micStreamRef.current = micStream;
       const micCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({ sampleRate: 16000 });
+      micCtxRef.current = micCtx;
       void micCtx.resume().catch(() => {});
       await micCtx.audioWorklet.addModule("/pcm-recorder-worklet.js");
+      if (!isCurrent()) {
+        micStream.getTracks().forEach((track) => track.stop());
+        void micCtx.close().catch(() => {});
+        return;
+      }
       const source = micCtx.createMediaStreamSource(micStream);
       const processor = new AudioWorkletNode(micCtx, "pcm-recorder-processor", {
         numberOfInputs: 1,
@@ -214,6 +331,7 @@ export function CompanionWidget() {
       processor.connect(sink);
       sink.connect(micCtx.destination);
       processor.port.onmessage = (event) => {
+        if (!isCurrent()) return;
         const inputData = event.data;
         if (!(inputData instanceof Float32Array)) return;
         const pcm16 = new Int16Array(inputData.length);
@@ -231,66 +349,79 @@ export function CompanionWidget() {
       // Duration timer
       const startTime = Date.now();
       durationIntervalRef.current = setInterval(() => {
+        if (!isCurrent()) return;
         setSessionDuration(Math.round((Date.now() - startTime) / 1000));
       }, 1000);
+      setState("listening");
     } catch (err) {
+      if (!isCurrent()) return;
       console.error("Failed to start companion:", err);
+      releaseLiveResources();
       setState("error");
     }
-  }, [user, captureMode]);
+  }, [user, captureMode, releaseLiveResources]);
 
   const stopCompanion = useCallback(async () => {
-    if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
-    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
-    captureIntervalRef.current = null;
-    durationIntervalRef.current = null;
-
-    sessionRef.current?.close();
-    sessionRef.current = null;
-    playCtxRef.current?.close();
-    playCtxRef.current = null;
-
-    if (sessionIdRef.current) {
+    const sessionId = sessionIdRef.current;
+    releaseLiveResources();
+    let recap: ReturnType<typeof buildSessionRecap> | null = null;
+    if (sessionId) {
       const dbSession = {
-        id: sessionIdRef.current,
+        id: sessionId,
         user_id: user?.id ?? "",
         started_at: new Date(Date.now() - sessionDuration * 1000).toISOString(),
         ended_at: new Date().toISOString(),
         recap_json: null,
         created_at: "",
       };
-      const recap = buildSessionRecap(dbSession, turnsRef.current, eventsRef.current);
-      await endSession(sessionIdRef.current, recap);
+      recap = buildSessionRecap(dbSession, turnsRef.current, eventsRef.current);
     }
 
+    // Reset synchronously before the recap request yields. An older stop must
+    // never resume later and hide a newly-started companion generation.
     setState("idle");
     setSessionDuration(0);
     setFrustrationCount(0);
     setFeatureRequestCount(0);
     setTranscript([]);
-  }, [user, sessionDuration]);
+
+    if (sessionId && recap) {
+      try {
+        await endSession(sessionId, recap);
+      } catch (error) {
+        console.error("Failed to finalize companion session:", error);
+      }
+    }
+  }, [user, sessionDuration, releaseLiveResources]);
 
   const upgradeToScreenShare = useCallback(async () => {
+    const generation = lifecycleRef.current;
     const stream = await requestDisplayMedia();
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-      setCaptureMode("display-media");
-      stream.getVideoTracks()[0].onended = () => {
-        setCaptureMode("html2canvas");
-      };
+    if (!stream) return;
+    if (lifecycleRef.current !== generation || !videoRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    return () => {
-      if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
-      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
-      sessionRef.current?.close();
-      playCtxRef.current?.close();
+    displayStreamRef.current?.getTracks().forEach((track) => track.stop());
+    displayStreamRef.current = stream;
+    videoRef.current.srcObject = stream;
+    setCaptureMode("display-media");
+    stream.getVideoTracks()[0].onended = () => {
+      if (lifecycleRef.current !== generation) return;
+      if (displayStreamRef.current === stream) {
+        displayStreamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
+      }
+      setCaptureMode("html2canvas");
     };
   }, []);
 
-  const resolvedKey = getStoredApiKey();
+  useEffect(() => {
+    return releaseLiveResources;
+  }, [releaseLiveResources]);
+
+  const resolvedKey = getStoredApiKey(user?.id);
 
   if (!user) return null;
 
@@ -322,7 +453,7 @@ export function CompanionWidget() {
               <button
                 onClick={() => {
                   if (apiKey.trim()) {
-                    localStorage.setItem(STORAGE_KEY, apiKey.trim());
+                    sessionStorage.setItem(storageKeyForUser(user.id), apiKey.trim());
                     setShowKeyInput(false);
                     setState("idle");
                   }

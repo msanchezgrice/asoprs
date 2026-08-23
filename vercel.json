@@ -3,17 +3,13 @@
   "framework": "nextjs",
   "functions": {
     "src/app/api/**/*.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/study-packs/route.ts": {
+      "maxDuration": 180
+    },
+    "src/app/api/pm-brief/route.ts": {
       "maxDuration": 300
     }
-  },
-  "crons": [
-    {
-      "path": "/api/pm-brief",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/admin/sync-github",
-      "schedule": "0 * * * *"
-    }
-  ]
+  }
 }

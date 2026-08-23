@@ -7,6 +7,7 @@ import {
   getOralExamCaseLabel,
   getInitialOralExamState,
   handleOralExamTurn,
+  type OralExamState,
 } from "./oral-exam";
 
 describe("oral exam cases", () => {
@@ -102,7 +103,7 @@ describe("oral exam engine", () => {
   });
 
   it("serially reveals history, workup, management, and source disclosure", () => {
-    let state = getInitialOralExamState("orbital-rhabdomyosarcoma");
+    let state: OralExamState = getInitialOralExamState("orbital-rhabdomyosarcoma");
 
     const historyTurn = handleOralExamTurn({
       oralCaseId: "orbital-rhabdomyosarcoma",

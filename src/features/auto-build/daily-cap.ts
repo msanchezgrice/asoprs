@@ -1,4 +1,4 @@
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export interface DailyCapInfo {
   count: number;

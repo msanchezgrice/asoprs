@@ -1,4 +1,4 @@
-import type { getServiceClient } from "@/lib/supabase";
+import type { getServiceClient } from "@/lib/supabase/service";
 import { pickDailyIndexes, type DailyFact, type DailyQuestion } from "./daily-study-email";
 
 export interface FlashcardRecord {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 import { runApprovalAgent } from "@/features/auto-build/approval-agent";
 import type { ApprovalConfig } from "@/features/auto-build/approval-agent";
+import { requireAdmin, requireSameOrigin, rejectOversizedBody } from "@/lib/api-security";
 
 const DEFAULT_CONFIG: ApprovalConfig = {
   mode: "dry_run",
@@ -19,22 +19,29 @@ const DEFAULT_CONFIG: ApprovalConfig = {
 };
 
 export async function POST(req: Request) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const requestError = requireSameOrigin(req) ?? rejectOversizedBody(req, 2_000);
+  if (requestError) return requestError;
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const { pr_number } = await req.json();
 
-  if (!pr_number || typeof pr_number !== "number") {
+  if (!Number.isInteger(pr_number) || pr_number < 1 || pr_number > 10_000_000) {
     return NextResponse.json({ error: "pr_number is required and must be a number" }, { status: 400 });
   }
 
   // Load approval config from admin_settings
   const db = getServiceClient();
+  const { data: boundChange, error: bindingError } = await db
+    .from("shipped_changes")
+    .select("id")
+    .eq("feature_context->>pr_number", String(pr_number))
+    .maybeSingle();
+
+  if (bindingError || !boundChange) {
+    return NextResponse.json({ error: "PR is not bound to an approved change" }, { status: 404 });
+  }
   const { data: settingRow } = await db
     .from("admin_settings")
     .select("value")

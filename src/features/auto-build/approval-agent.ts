@@ -53,6 +53,10 @@ interface GitHubPR {
   additions: number;
   deletions: number;
   diff_url: string;
+  draft: boolean;
+  state: string;
+  head: { ref: string; sha: string; repo: { full_name: string } | null };
+  base: { ref: string; repo: { full_name: string } };
 }
 
 async function githubFetch(path: string, token: string, accept?: string): Promise<Response> {
@@ -253,8 +257,8 @@ export function applyConfigOverrides(
   }
 
   if (config.mode === "auto_all") {
-    // Override to approve regardless (after safety checks above)
-    return { decision: "approve" };
+    // "Auto all" controls automation breadth, not the reviewer decision.
+    return { decision: aiDecision };
   }
 
   return { decision: aiDecision };
@@ -275,6 +279,30 @@ export async function runApprovalAgent(
     throw new Error(`Failed to fetch PR #${prNumber}: ${prRes.status}`);
   }
   const pr: GitHubPR = await prRes.json();
+
+  const trustedPullRequest =
+    pr.state === "open" &&
+    !pr.draft &&
+    pr.base.ref === "main" &&
+    pr.base.repo.full_name === GITHUB_REPO &&
+    pr.head.repo?.full_name === GITHUB_REPO &&
+    /^auto-build\/issue-\d+$/.test(pr.head.ref);
+
+  if (!trustedPullRequest) {
+    return {
+      decision: "escalate",
+      risk_score: 100,
+      confidence: 10,
+      reasoning: {
+        what_changed: "Pull request provenance did not match the trusted auto-build workflow",
+        failure_modes: ["Untrusted repository, branch, base, draft, or closed pull request"],
+        what_verified: ["Repository, head branch, base branch, draft state, and open state"],
+        confidence_gaps: [],
+        blast_radius: "high",
+      },
+      auto_merged: false,
+    };
+  }
 
   // 2. Fetch PR files
   const filesRes = await githubFetch(`/repos/${GITHUB_REPO}/pulls/${prNumber}/files`, githubToken);
@@ -400,20 +428,42 @@ export async function runApprovalAgent(
 
   // 9. Auto-merge if approved and mode allows (with daily cap check)
   let shouldMerge =
+    config.auto_merge_enabled === true &&
     result.decision === "approve" &&
     (config.mode === "auto_low_risk" || config.mode === "auto_all");
 
   if (shouldMerge) {
-    // Check daily cap before merging (dynamic import to avoid eager Supabase init)
+    // Require completed successful CI checks and a remaining daily quota.
     try {
+      const checksResponse = await githubFetch(
+        `/repos/${GITHUB_REPO}/commits/${pr.head.sha}/check-runs`,
+        githubToken,
+      );
+      if (!checksResponse.ok) {
+        shouldMerge = false;
+      } else {
+        const checksPayload = await checksResponse.json() as {
+          check_runs?: Array<{ status?: string; conclusion?: string | null }>;
+        };
+        const checks = checksPayload.check_runs ?? [];
+        const successfulConclusions = new Set(["success", "neutral", "skipped"]);
+        if (
+          checks.length === 0 ||
+          checks.some((check) => check.status !== "completed" || !check.conclusion || !successfulConclusions.has(check.conclusion))
+        ) {
+          shouldMerge = false;
+        }
+      }
+
       const { getDailyImprovementCount } = await import("./daily-cap");
       const dailyCap = await getDailyImprovementCount();
       if (dailyCap.remaining <= 0) {
         shouldMerge = false;
         console.log(`Daily improvement cap reached (${dailyCap.count}/${dailyCap.limit}), skipping auto-merge for PR #${prNumber}`);
       }
-    } catch {
-      // If daily cap check fails, proceed with merge
+    } catch (error) {
+      console.error("Auto-merge safety precheck failed:", error);
+      shouldMerge = false;
     }
   }
 
@@ -431,6 +481,7 @@ export async function runApprovalAgent(
         body: JSON.stringify({
           merge_method: "squash",
           commit_title: `${pr.title} (#${prNumber})`,
+          sha: pr.head.sha,
         }),
       },
     );
@@ -443,7 +494,7 @@ export async function runApprovalAgent(
       if (branchMatch) {
         // Try to delete branch via API (best effort)
         await fetch(
-          `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/auto-build/issue-${prNumber}`,
+          `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${encodeURIComponent(pr.head.ref)}`,
           {
             method: "DELETE",
             headers: {

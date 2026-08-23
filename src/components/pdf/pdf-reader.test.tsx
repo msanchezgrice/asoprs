@@ -73,7 +73,7 @@ describe("PdfReader", () => {
 
   afterEach(() => {
     cleanup();
-    delete (window as Window & { getSelection?: () => Selection | null }).getSelection;
+    Reflect.deleteProperty(window, "getSelection");
   });
 
   test("saves normal text selections as highlight rects", async () => {
@@ -175,13 +175,11 @@ describe("PdfReader", () => {
 
     render(
       <PdfReader
-        {...({
-          url: "https://example.com/mock.pdf",
-          highlights,
-          highlightMode: false,
-          onSaveHighlight: vi.fn(),
-          onDeleteHighlight,
-        } as never)}
+        url="https://example.com/mock.pdf"
+        highlights={highlights}
+        highlightMode={false}
+        onSaveHighlight={vi.fn()}
+        onDeleteHighlight={onDeleteHighlight}
       />
     );
 

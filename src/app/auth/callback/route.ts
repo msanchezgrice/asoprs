@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase";
+import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/config";
+import { sanitizeNextPath } from "@/lib/safe-redirect";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const next = request.nextUrl.searchParams.get("next") || "/";
+  const next = sanitizeNextPath(request.nextUrl.searchParams.get("next"));
   const redirectUrl = new URL(next, request.url);
+
+  if (!code) {
+    return NextResponse.redirect(new URL("/sign-in?error=missing_code", request.url));
+  }
 
   let response = NextResponse.redirect(redirectUrl);
 
@@ -27,8 +32,10 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    console.error("Auth code exchange failed:", error.code);
+    return NextResponse.redirect(new URL("/sign-in?error=invalid_callback", request.url));
   }
 
   return response;

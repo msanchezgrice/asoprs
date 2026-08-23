@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/api-security";
 import {
   buildStudyPackDocx,
   buildStudyPackPdf,
@@ -28,6 +29,9 @@ export async function GET(
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
+  const rateLimit = await enforceRateLimit(user.id, "study_pack_download", 60, 3_600);
+  if (rateLimit) return rateLimit;
+
   const { data, error } = await userDb
     .from("user_study_packs")
     .select("id, title, pack_json, pack_text")
@@ -46,7 +50,7 @@ export async function GET(
       id: data.id,
       pack,
       text: data.pack_text,
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
   const bytes =

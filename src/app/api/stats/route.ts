@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export async function GET() {
   const supabase = getServiceClient();
@@ -22,12 +22,19 @@ export async function GET() {
     categoryBreakdown[d.category] = (categoryBreakdown[d.category] || 0) + 1;
   }
 
-  return NextResponse.json({
-    documents: docs.length,
-    flashcards: fcRes.count || 0,
-    mcqs: mcqRes.count || 0,
-    concepts: conceptsRes.count || 0,
-    connections: edgesRes.count || 0,
-    categories: categoryBreakdown,
-  });
+  return NextResponse.json(
+    {
+      documents: docs.length,
+      flashcards: fcRes.count || 0,
+      mcqs: mcqRes.count || 0,
+      concepts: conceptsRes.count || 0,
+      connections: edgesRes.count || 0,
+      categories: categoryBreakdown,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    },
+  );
 }

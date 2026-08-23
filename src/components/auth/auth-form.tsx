@@ -5,13 +5,24 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { sanitizeNextPath } from "@/lib/safe-redirect";
 
 type Mode = "sign-in" | "sign-up";
+
+function isStrongSignupPassword(password: string): boolean {
+  return (
+    password.length >= 12 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9\s]/.test(password)
+  );
+}
 
 export function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/";
+  const nextPath = sanitizeNextPath(searchParams.get("next"));
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +58,12 @@ export function AuthForm() {
         router.refresh();
         router.push(nextPath);
         return;
+      }
+
+      if (!isStrongSignupPassword(password)) {
+        throw new Error(
+          "Use at least 12 characters with an uppercase letter, lowercase letter, number, and symbol."
+        );
       }
 
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
@@ -139,6 +156,7 @@ export function AuthForm() {
                 onChange={(event) => setFullName(event.target.value)}
                 className="w-full rounded-2xl border border-ivory-dark bg-parchment px-4 py-3 text-sm text-navy outline-none transition focus:border-coral"
                 placeholder="Miguel"
+                maxLength={100}
               />
             </label>
           )}
@@ -153,6 +171,7 @@ export function AuthForm() {
               onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-2xl border border-ivory-dark bg-parchment px-4 py-3 text-sm text-navy outline-none transition focus:border-coral"
               placeholder="you@example.com"
+              maxLength={254}
               required
             />
           </label>
@@ -166,10 +185,16 @@ export function AuthForm() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-2xl border border-ivory-dark bg-parchment px-4 py-3 text-sm text-navy outline-none transition focus:border-coral"
-              placeholder="At least 6 characters"
-              minLength={6}
+              placeholder={mode === "sign-up" ? "At least 12 characters" : "Your password"}
+              minLength={mode === "sign-up" ? 12 : undefined}
+              maxLength={128}
               required
             />
+            {mode === "sign-up" && (
+              <span className="mt-2 block text-xs leading-5 text-warm-gray">
+                Use 12+ characters with uppercase, lowercase, a number, and a symbol.
+              </span>
+            )}
           </label>
 
           {error && (

@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
+import { requireAdmin, requireSameOrigin, rejectOversizedBody } from "@/lib/api-security";
 
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const db = getServiceClient();
   const { data, error } = await db.from("admin_settings").select("*");
@@ -22,30 +17,18 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const requestError = requireSameOrigin(req) ?? rejectOversizedBody(req, 32_000);
+  if (requestError) return requestError;
 
-  // Verify admin role
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+
   const db = getServiceClient();
-  const { data: roleData } = await db
-    .from("builder_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
-
-  if (roleData?.role !== "admin") {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
 
   const { key, value } = await req.json();
 
-  if (!key || value === undefined) {
-    return NextResponse.json({ error: "Missing key or value" }, { status: 400 });
+  if (key !== "approval_config" || !value || typeof value !== "object" || Array.isArray(value)) {
+    return NextResponse.json({ error: "Invalid setting" }, { status: 400 });
   }
 
   const { error } = await db
@@ -54,7 +37,7 @@ export async function PUT(req: Request) {
       {
         key,
         value,
-        updated_by: user.id,
+        updated_by: auth.user.id,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "key" },

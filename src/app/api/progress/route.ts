@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { collectSupabasePages } from "@/lib/supabase/paginate";
 
 export async function GET() {
   const contentDb = getServiceClient();
@@ -31,7 +32,7 @@ export async function GET() {
   const [
     docsRes,
     flashcardCountRes,
-    flashcardInventoryRes,
+    contentCountsRes,
     mcqTotalRes,
     userProgressRes,
     sessionsRes,
@@ -40,14 +41,35 @@ export async function GET() {
   ] = await Promise.all([
     contentDb.from("documents").select("id, title, category"),
     contentDb.from("flashcards").select("id", { count: "exact", head: true }),
-    contentDb.from("flashcards").select("id, document_id"),
+    contentDb
+      .from("document_content_counts")
+      .select("document_id, flashcard_count"),
     contentDb.from("mcq_questions").select("id", { count: "exact", head: true }),
-    userDb
-      .from("user_flashcard_progress")
-      .select("flashcard_id, document_id, status, next_review, last_reviewed"),
-    userDb
-      .from("user_quiz_sessions")
-      .select("id, document_id, total_questions, correct_count, score_pct, completed_at"),
+    collectSupabasePages<{
+      flashcard_id: string;
+      document_id: string;
+      status: string;
+      next_review: string | null;
+      last_reviewed: string | null;
+    }>((from, to) =>
+      userDb
+        .from("user_flashcard_progress")
+        .select("flashcard_id, document_id, status, next_review, last_reviewed")
+        .range(from, to)
+    ),
+    collectSupabasePages<{
+      id: string;
+      document_id: string;
+      total_questions: number;
+      correct_count: number;
+      score_pct: number;
+      completed_at: string;
+    }>((from, to) =>
+      userDb
+        .from("user_quiz_sessions")
+        .select("id, document_id, total_questions, correct_count, score_pct, completed_at")
+        .range(from, to)
+    ),
     userDb
       .from("user_quiz_sessions")
       .select("id, document_id, score_pct, completed_at")
@@ -56,14 +78,23 @@ export async function GET() {
     userDb.from("user_pdf_highlights").select("id", { count: "exact", head: true }),
   ]);
 
+  if (
+    docsRes.error || flashcardCountRes.error || contentCountsRes.error || mcqTotalRes.error ||
+    userProgressRes.error || sessionsRes.error || recentSessionsRes.error || highlightsRes.error
+  ) {
+    return NextResponse.json({ error: "Unable to load progress" }, { status: 503 });
+  }
+
   const docs = docsRes.data || [];
   const docMap = Object.fromEntries(docs.map((doc) => [doc.id, doc]));
-  const flashcardInventory = flashcardInventoryRes.data || [];
+  const flashcardTotalsByDocument = new Map(
+    (contentCountsRes.data || []).map((entry) => [
+      entry.document_id,
+      Number(entry.flashcard_count),
+    ]),
+  );
   const userProgress = userProgressRes.data || [];
   const sessions = sessionsRes.data || [];
-  const progressByFlashcard = new Map(
-    userProgress.map((entry) => [entry.flashcard_id, entry])
-  );
 
   const totalFlashcards = flashcardCountRes.count || 0;
   const masteredCards = userProgress.filter((entry) => entry.status === "mastered").length;
@@ -122,21 +153,24 @@ export async function GET() {
 
   const categoryProgress: Record<string, number> = {};
   for (const [category, docIds] of Object.entries(docIdsByCategory)) {
-    const categoryCards = flashcardInventory.filter((card) =>
-      docIds.includes(card.document_id)
+    const categoryCardCount = docIds.reduce(
+      (sum, documentId) => sum + (flashcardTotalsByDocument.get(documentId) ?? 0),
+      0,
     );
-    if (categoryCards.length === 0) {
+    if (categoryCardCount === 0) {
       categoryProgress[category] = 0;
       continue;
     }
 
-    const learnedCards = categoryCards.filter((card) => {
-      const progress = progressByFlashcard.get(card.id);
-      return progress?.status === "learning" || progress?.status === "mastered";
-    }).length;
+    const categoryDocumentIds = new Set(docIds);
+    const learnedCards = userProgress.filter(
+      (entry) =>
+        categoryDocumentIds.has(entry.document_id) &&
+        (entry.status === "learning" || entry.status === "mastered"),
+    ).length;
 
     categoryProgress[category] = Math.round(
-      (learnedCards / categoryCards.length) * 100
+      (learnedCards / categoryCardCount) * 100
     );
   }
 

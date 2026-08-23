@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, BarChart3, Hammer, FileText, ExternalLink, X, ChevronDown, ChevronRight, Settings, Shield, Trash2 } from "lucide-react";
 import { useAuthSession } from "@/hooks/use-auth-session";
+import { useBuilderRole } from "@/hooks/use-builder-role";
 
 type DeliveryStrategy = "global_fix" | "config_change" | "content_weight" | "isolated_module";
 
@@ -169,6 +170,7 @@ function ChangeBadgeRow({ change }: { change: BuildChange }) {
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuthSession();
+  const { isAdmin, loading: roleLoading } = useBuilderRole();
   const [briefs, setBriefs] = useState<PMBrief[]>([]);
   const [shippedChanges, setShippedChanges] = useState<BuildChange[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,14 +315,16 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchBriefs();
-      fetchShippedChanges();
-      fetchSettings();
-      // Auto-sync GitHub status on page load
-      syncGitHub();
-    }
-  }, [user, fetchBriefs, fetchShippedChanges, fetchSettings, syncGitHub]);
+    if (!user || !isAdmin) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchBriefs();
+      void fetchShippedChanges();
+      void fetchSettings();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [user, isAdmin, fetchBriefs, fetchShippedChanges, fetchSettings]);
 
   const generateBrief = async () => {
     setGenerating(true);
@@ -402,8 +406,9 @@ export default function AdminPage() {
     setActionLoading(null);
   };
 
-  if (authLoading) return <div className="flex items-center justify-center min-h-dvh"><Loader2 className="animate-spin text-warm-gray" /></div>;
+  if (authLoading || roleLoading) return <div className="flex items-center justify-center min-h-dvh"><Loader2 className="animate-spin text-warm-gray" /></div>;
   if (!user) return <div className="flex items-center justify-center min-h-dvh text-warm-gray">Sign in to access admin</div>;
+  if (!isAdmin) return <div className="flex items-center justify-center min-h-dvh text-warm-gray">Admin access required</div>;
 
   const totalProposals = briefs.reduce((n, b) => n + (b.action_items?.length ?? 0), 0);
   const approvedCount = briefs.reduce((n, b) => n + (b.action_items ?? []).filter((p) => p.status === "approved").length, 0);

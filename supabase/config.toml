@@ -20,12 +20,25 @@ additional_redirect_urls = [
   "https://study-portal-enetzbyzu-miguel-sanchezgrices-projects.vercel.app/auth/callback",
 ]
 enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+minimum_password_length = 12
+password_requirements = "lower_upper_letters_digits_symbols"
+
+[auth.rate_limit]
+anonymous_users = 30
+token_refresh = 150
+sign_in_sign_ups = 30
+token_verifications = 30
 
 [auth.email]
 enable_signup = true
 enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
 max_frequency = "1m0s"
 otp_length = 8
+otp_expiry = 3600
 
 [auth.mfa.totp]
 enroll_enabled = true

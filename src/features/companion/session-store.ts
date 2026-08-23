@@ -11,56 +11,57 @@ import type {
 const supabase = createBrowserSupabaseClient();
 
 export async function createSession(): Promise<CompanionSession | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from("companion_sessions")
-    .insert({ user_id: user.id })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Failed to create companion session:", error);
+  const response = await fetch("/api/companion/sessions", { method: "POST" });
+  if (!response.ok) {
+    console.error("Failed to create companion session.");
     return null;
   }
-  return data;
+  return response.json() as Promise<CompanionSession>;
 }
 
 export async function endSession(
   sessionId: string,
   recap: SessionRecap,
 ): Promise<void> {
-  await supabase
-    .from("companion_sessions")
-    .update({
-      ended_at: new Date().toISOString(),
-      recap_json: recap,
-    })
-    .eq("id", sessionId);
+  await fetch("/api/companion/recap", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, recap_json: recap }),
+  });
 }
 
 export async function saveTurn(
   sessionId: string,
   turn: Omit<CompanionTurn, "id" | "session_id">,
-  feedbackType?: string,
 ): Promise<void> {
-  await supabase.from("companion_turns").insert({
-    session_id: sessionId,
-    ...turn,
-    feedback_type: feedbackType ?? "user",
+  await fetch("/api/companion/turns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      role: turn.role,
+      transcript: turn.transcript.slice(0, 8_000),
+      prompt_kind: turn.prompt_kind?.slice(0, 100) ?? null,
+      started_at: turn.started_at,
+      ended_at: turn.ended_at,
+    }),
   });
 }
 
 export async function saveEvent(
   sessionId: string,
   event: Omit<CompanionEvent, "id" | "session_id">,
-  feedbackType?: string,
 ): Promise<void> {
-  await supabase.from("companion_events").insert({
-    session_id: sessionId,
-    ...event,
-    feedback_type: feedbackType ?? "user",
+  await fetch("/api/companion/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      event_type: event.event_type.slice(0, 100),
+      payload: JSON.stringify(event.payload ?? {}).length <= 16_000 ? event.payload : {},
+      screenshot_url: event.screenshot_url?.slice(0, 500) ?? null,
+      occurred_at: event.occurred_at,
+    }),
   });
 }
 
@@ -68,8 +69,16 @@ export async function saveScreenshot(
   sessionId: string,
   base64Jpeg: string,
 ): Promise<string | null> {
-  const filename = `${sessionId}/${Date.now()}.jpg`;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const buffer = Uint8Array.from(atob(base64Jpeg), (c) => c.charCodeAt(0));
+  if (buffer.byteLength > 2 * 1024 * 1024) {
+    console.error("Screenshot exceeds the private bucket size limit.");
+    return null;
+  }
+
+  const filename = `${user.id}/${sessionId}/${Date.now()}.jpg`;
 
   const { error } = await supabase.storage
     .from("companion-screenshots")
@@ -80,11 +89,19 @@ export async function saveScreenshot(
     return null;
   }
 
-  const { data } = supabase.storage
-    .from("companion-screenshots")
-    .getPublicUrl(filename);
+  // Store only the private object path. A signed URL must be minted on demand
+  // after an ownership check if this image is ever displayed.
+  return filename;
+}
 
-  return data.publicUrl;
+export async function deleteScreenshot(path: string): Promise<void> {
+  const { error } = await supabase.storage
+    .from("companion-screenshots")
+    .remove([path]);
+
+  if (error) {
+    console.error("Failed to remove stale companion screenshot:", error);
+  }
 }
 
 export function buildSessionRecap(
@@ -92,8 +109,8 @@ export function buildSessionRecap(
   turns: CompanionTurn[],
   events: CompanionEvent[],
 ): SessionRecap {
-  const userTurns = turns.filter((t) => t.role === "user");
-  const modelTurns = turns.filter((t) => t.role === "model");
+  const userTurns = turns.filter((t) => t.role === "user").slice(-100);
+  const modelTurns = turns.filter((t) => t.role === "model").slice(-100);
 
   const frustrations: FrustrationSignal[] = [];
   const featureRequests: FeatureRequest[] = [];

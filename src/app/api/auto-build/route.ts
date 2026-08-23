@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateBuildPlan, executeBuildPlan } from "@/features/auto-build/build-proposal";
-import { getServiceClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase/service";
+import { requireAdmin, requireSameOrigin, rejectOversizedBody } from "@/lib/api-security";
 
 // POST: Generate PRD and trigger build for an approved proposal
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const requestError = requireSameOrigin(req) ?? rejectOversizedBody(req, 4_000);
+  if (requestError) return requestError;
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const body = await req.json();
   const { change_id } = body;
 
-  if (!change_id) {
+  if (typeof change_id !== "string" || change_id.length > 100) {
     return NextResponse.json({ error: "change_id is required" }, { status: 400 });
   }
 
@@ -188,11 +188,8 @@ export async function POST(req: NextRequest) {
 
 // GET: List build queue
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const db = getServiceClient();
   const { data } = await db

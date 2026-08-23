@@ -2,6 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 import { getInitialOralExamState } from "@/features/oral-exam/oral-exam";
 
+vi.mock("@/lib/api-security", () => ({
+  enforcePaidRateLimit: vi.fn().mockResolvedValue(null),
+  rejectOversizedBody: vi.fn().mockReturnValue(null),
+  requireSameOrigin: vi.fn().mockReturnValue(null),
+  requireUser: vi.fn().mockResolvedValue({
+    ok: true,
+    user: { id: "test-user", email_confirmed_at: "2026-01-01T00:00:00Z" },
+  }),
+}));
+
 const ORIGINAL_OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 describe("/api/oral-exam/turn", () => {

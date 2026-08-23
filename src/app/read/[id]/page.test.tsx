@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { ReaderPageContent } from "./page";
+import { ReaderPageContent } from "./reader-page-content";
 
 vi.mock("next/link", () => ({
   default: ({

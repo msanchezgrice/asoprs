@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase";
+import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/config";
 
 export async function updateSession(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");

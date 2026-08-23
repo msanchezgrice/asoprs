@@ -9,6 +9,7 @@ const { mockCreate, mockInsert } = vi.hoisted(() => ({
 // Track data per-table for the mock
 let feedbackData: unknown[] = [];
 let sessionsData: unknown[] = [];
+let builderRole: string | null = "builder";
 
 // Mock Anthropic SDK
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -18,7 +19,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 // Mock Supabase — build a chainable mock that resolves with per-table data
-vi.mock("@/lib/supabase", () => ({
+vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({
     from: (table: string) => {
       if (table === "pm_briefs") {
@@ -35,6 +36,7 @@ vi.mock("@/lib/supabase", () => ({
         chain.in = self;
         chain.not = self;
         chain.order = self;
+        chain.limit = self;
         // Make it thenable so `await` works
         chain.then = (resolve: (v: { data: unknown[] }) => void) =>
           Promise.resolve({ data }).then(resolve);
@@ -53,7 +55,10 @@ vi.mock("@/lib/supabase", () => ({
         chain.in = self;
         chain.not = self;
         chain.order = self;
-        chain.single = () => Promise.resolve({ data: null, error: { code: "PGRST116" } });
+        chain.single = () => Promise.resolve({
+          data: builderRole ? { role: builderRole } : null,
+          error: builderRole ? null : { code: "PGRST116" },
+        });
         chain.then = (resolve: (v: { data: unknown[] }) => void) =>
           Promise.resolve({ data: [] }).then(resolve);
         return chain;
@@ -87,6 +92,7 @@ describe("generate-brief", () => {
     vi.clearAllMocks();
     feedbackData = [];
     sessionsData = [];
+    builderRole = "builder";
   });
 
   describe("generateGlobalBrief", () => {
@@ -139,7 +145,7 @@ describe("generate-brief", () => {
       expect(result.proposals).toHaveLength(0);
       expect(result.raw_data.feedback_count).toBe(0);
       expect(result.raw_data.session_count).toBe(0);
-      expect(result.summary).toContain("No user activity");
+      expect(result.summary).toContain("No builder feedback");
       expect(mockCreate).not.toHaveBeenCalled();
     });
 
@@ -250,6 +256,19 @@ describe("generate-brief", () => {
       for (const p of result.proposals) {
         expect(p.scope).toBe("user");
       }
+    });
+
+    it("does not analyze an ordinary user's private feedback or transcript", async () => {
+      builderRole = "user";
+      feedbackData = [
+        { tag: "private", screen: "companion", free_text: "sensitive text" },
+      ];
+
+      const result = await generateUserBrief("ordinary-user");
+
+      expect(result.proposals).toHaveLength(0);
+      expect(result.summary).toContain("disabled for ordinary users");
+      expect(mockCreate).not.toHaveBeenCalled();
     });
   });
 
