@@ -144,7 +144,7 @@ export function buildDailyStudyEmail({
   appUrl,
 }: DailyStudyEmailInput): DailyStudyEmail {
   const dateLabel = displayDate(date);
-  const subject = `Irena’s 5-minute ASOPRS drill — ${dateLabel}`;
+  const subject = `Your 5-minute ASOPRS drill — ${dateLabel}`;
   const hasContent = facts.length > 0 || questions.length > 0;
   const emptyMessage = "No study items were available today. Open the study portal for a full review session.";
   const safeAppUrl = escapeHtml(appUrl.replace(/\/$/, ""));
@@ -165,7 +165,7 @@ export function buildDailyStudyEmail({
             <tr>
               <td style="padding:26px 24px 24px;background:#20304b;">
                 <div style="font-size:11px;line-height:16px;font-weight:800;letter-spacing:1.8px;color:#f39a79;text-transform:uppercase;">ASOPRS Daily · ${escapeHtml(dateLabel)}</div>
-                <div style="padding-top:10px;font-family:Georgia,'Times New Roman',serif;font-size:29px;line-height:34px;color:#ffffff;">Good morning, Irena.</div>
+                <div style="padding-top:10px;font-family:Georgia,'Times New Roman',serif;font-size:29px;line-height:34px;color:#ffffff;">Good morning.</div>
                 <div style="padding-top:8px;font-size:16px;line-height:23px;color:#dce3ed;">Your 5-minute drill: read three pearls, commit to three answers, then scroll to check yourself.</div>
               </td>
             </tr>
@@ -223,7 +223,7 @@ export function buildDailyStudyEmail({
     .join("\n\n");
 
   const text = hasContent
-    ? `ASOPRS DAILY — ${dateLabel}\n\nGood morning, Irena.\nYour 5-minute drill: read three pearls, commit to three answers, then check yourself.\n\nRAPID RECALL\n\n${factText}\n\nBOARD-STYLE QUESTIONS\n\n${questionText}\n\nANSWERS\n\n${answerText}\n\nOpen the study portal: ${appUrl}`
+    ? `ASOPRS DAILY — ${dateLabel}\n\nGood morning.\nYour 5-minute drill: read three pearls, commit to three answers, then check yourself.\n\nRAPID RECALL\n\n${factText}\n\nBOARD-STYLE QUESTIONS\n\n${questionText}\n\nANSWERS\n\n${answerText}\n\nOpen the study portal: ${appUrl}`
     : `ASOPRS DAILY — ${dateLabel}\n\n${emptyMessage}\n\nOpen the study portal: ${appUrl}`;
 
   return { subject, html, text };

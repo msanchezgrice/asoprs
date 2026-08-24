@@ -4,11 +4,17 @@ import {
   createSupabaseDailyStudyRepository,
   loadDailyStudyContent,
 } from "@/features/daily-study-email/load-daily-study-content";
+import { enforceRateLimit } from "@/lib/api-security";
 import { getServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_APP_URL = "https://study-portal-hazel.vercel.app";
+const CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
+const NO_STORE = "private, no-store, max-age=0";
+const MAX_DATE_DISTANCE_DAYS = 7;
+const VALID_FORMATS = new Set(["html", "text"]);
+const VALID_QUERY_PARAMETERS = new Set(["date", "format"]);
 
 function chicagoDate() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -25,9 +31,27 @@ function isIsoDate(value: string) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
 }
 
+function dateDistanceInDays(first: string, second: string) {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const firstTime = new Date(`${first}T12:00:00Z`).getTime();
+  const secondTime = new Date(`${second}T12:00:00Z`).getTime();
+  return Math.abs(firstTime - secondTime) / millisecondsPerDay;
+}
+
 export async function GET(request: NextRequest) {
-  const requestedDate = request.nextUrl.searchParams.get("date");
-  const format = request.nextUrl.searchParams.get("format");
+  const { searchParams } = request.nextUrl;
+  const hasUnknownParameter = [...searchParams.keys()].some(
+    (parameter) => !VALID_QUERY_PARAMETERS.has(parameter)
+  );
+  const hasDuplicateParameter = [...VALID_QUERY_PARAMETERS].some(
+    (parameter) => searchParams.getAll(parameter).length > 1
+  );
+  if (hasUnknownParameter || hasDuplicateParameter) {
+    return NextResponse.json({ error: "Unsupported query parameters" }, { status: 400 });
+  }
+
+  const requestedDate = searchParams.get("date");
+  const format = searchParams.get("format");
   if (requestedDate && !isIsoDate(requestedDate)) {
     return NextResponse.json(
       { error: "date must be a real calendar date in YYYY-MM-DD format" },
@@ -35,7 +59,26 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const date = requestedDate || chicagoDate();
+  if (format && !VALID_FORMATS.has(format)) {
+    return NextResponse.json(
+      { error: "format must be html or text" },
+      { status: 400 }
+    );
+  }
+
+  const today = chicagoDate();
+  if (requestedDate && dateDistanceInDays(requestedDate, today) > MAX_DATE_DISTANCE_DAYS) {
+    return NextResponse.json(
+      { error: "date must be within seven days of today" },
+      { status: 400 }
+    );
+  }
+
+  const rateLimit = await enforceRateLimit("global", "daily_study_email", 120, 3_600);
+  if (rateLimit) return rateLimit;
+
+  const date = requestedDate || today;
+  const cacheControl = requestedDate ? CACHE_CONTROL : NO_STORE;
 
   try {
     const repository = createSupabaseDailyStudyRepository(getServiceClient());
@@ -50,7 +93,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(email.html, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "private, no-store, max-age=0",
+          "Cache-Control": cacheControl,
         },
       });
     }
@@ -59,7 +102,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(email.text, {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "private, no-store, max-age=0",
+          "Cache-Control": cacheControl,
         },
       });
     }
@@ -72,7 +115,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "private, no-store, max-age=0",
+          "Cache-Control": cacheControl,
         },
       }
     );

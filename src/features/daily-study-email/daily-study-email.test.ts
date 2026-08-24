@@ -52,7 +52,9 @@ describe("buildDailyStudyEmail", () => {
       appUrl: "https://asoprs.app",
     });
 
-    expect(email.subject).toBe("Irena’s 5-minute ASOPRS drill — Aug 13");
+    expect(email.subject).toBe("Your 5-minute ASOPRS drill — Aug 13");
+    expect(email.html).toContain("Good morning.");
+    expect(email.html).not.toContain("Irena");
     expect(email.html).toContain('name="viewport"');
     expect(email.html).toContain("width:100%");
     expect(email.html).toContain("5-minute drill");
