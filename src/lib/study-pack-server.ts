@@ -13,7 +13,9 @@ import {
   buildStudyPackTitle,
   DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
   DEFAULT_STUDY_PACK_MCQ_COUNT,
+  distributeStudyPackCorrectAnswers,
   sanitizeStudyPackCount,
+  STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION,
   type StudyPack,
   type StudyPackContentMode,
   type StudyPackFlashcard,
@@ -102,7 +104,7 @@ async function generateSectionContent(
   const model = getGemini();
   const modeInstructions =
     contentMode === "mcq"
-      ? `Write exactly ${mcqCount} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation.`
+      ? `Write exactly ${mcqCount} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation. ${STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION}`
       : contentMode === "flashcards"
         ? `Write exactly ${flashcardCount} high-yield flashcards with concise but information-dense answers.`
         : `Write exactly ${mcqCount} board-style MCQs and exactly ${flashcardCount} high-yield flashcards.`;
@@ -156,7 +158,10 @@ ${doc.content.slice(0, MAX_SOURCE_CHARS)}
       });
 
       const parsed = parseGeneratedStudyPack(response.text ?? "");
-      const mcqs = contentMode === "flashcards" ? [] : parsed.mcqs.slice(0, mcqCount);
+      const mcqs =
+        contentMode === "flashcards"
+          ? []
+          : distributeStudyPackCorrectAnswers(parsed.mcqs.slice(0, mcqCount));
       const flashcards =
         contentMode === "mcq"
           ? []

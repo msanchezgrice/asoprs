@@ -7,6 +7,8 @@ export const DEFAULT_STUDY_PACK_MCQ_COUNT = 50;
 export const DEFAULT_STUDY_PACK_FLASHCARD_COUNT = 30;
 export const MIN_STUDY_PACK_ITEM_COUNT = 1;
 export const MAX_STUDY_PACK_ITEM_COUNT = 100;
+export const STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION =
+  "Distribute correct answers as evenly as possible across A, B, and C, and avoid predictable sequences or long runs of the same answer position.";
 
 export interface StudyPackRequest {
   selectedDocumentIds: string[];
@@ -94,7 +96,8 @@ export function buildStudyPackInstructions(params: {
   if (params.contentMode === "mcq") {
     lines.push(
       `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions.`,
-      "Use exactly 3 answer choices per question, include an answer key, and add concise explanations."
+      "Use exactly 3 answer choices per question, include an answer key, and add concise explanations.",
+      STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION
     );
   } else if (params.contentMode === "flashcards") {
     lines.push(
@@ -104,6 +107,7 @@ export function buildStudyPackInstructions(params: {
   } else {
     lines.push(
       `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions with exactly 3 answer choices, an answer key, and concise explanations.`,
+      STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION,
       `Also write exactly ${flashcardCount} high-yield flashcards for the same section.`
     );
   }
@@ -119,6 +123,83 @@ export function buildStudyPackInstructions(params: {
   }
 
   return lines.join(" ");
+}
+
+function hashStudyPackQuestions(mcqs: StudyPackMcq[]) {
+  let hash = 2166136261;
+  const source = mcqs
+    .map((mcq) => `${mcq.question}\u0000${mcq.options.join("\u0000")}`)
+    .join("\u0001");
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function buildBalancedAnswerPositions(mcqs: StudyPackMcq[]) {
+  const remaining = [
+    Math.floor(mcqs.length / 3),
+    Math.floor(mcqs.length / 3),
+    Math.floor(mcqs.length / 3),
+  ];
+  let randomState = hashStudyPackQuestions(mcqs) || 1;
+  const remainderOffset = randomState % 3;
+
+  for (let index = 0; index < mcqs.length % 3; index += 1) {
+    remaining[(remainderOffset + index) % 3] += 1;
+  }
+
+  const positions: number[] = [];
+  let previous = -1;
+
+  while (positions.length < mcqs.length) {
+    const available = [0, 1, 2].filter(
+      (position) => remaining[position] > 0 && position !== previous
+    );
+    const candidates = available.length > 0
+      ? available
+      : [0, 1, 2].filter((position) => remaining[position] > 0);
+    const highestRemaining = Math.max(
+      ...candidates.map((position) => remaining[position])
+    );
+    const bestCandidates = candidates.filter(
+      (position) => remaining[position] === highestRemaining
+    );
+
+    randomState =
+      (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    const next = bestCandidates[randomState % bestCandidates.length];
+    positions.push(next);
+    remaining[next] -= 1;
+    previous = next;
+  }
+
+  return positions;
+}
+
+export function distributeStudyPackCorrectAnswers(mcqs: StudyPackMcq[]) {
+  const targetPositions = buildBalancedAnswerPositions(mcqs);
+
+  return mcqs.map((mcq, index) => {
+    const targetIndex = targetPositions[index];
+    const options: [string, string, string] = [...mcq.options];
+
+    if (mcq.correctIndex !== targetIndex) {
+      [options[mcq.correctIndex], options[targetIndex]] = [
+        options[targetIndex],
+        options[mcq.correctIndex],
+      ];
+    }
+
+    return {
+      ...mcq,
+      options,
+      correctIndex: targetIndex,
+    };
+  });
 }
 
 export const DEFAULT_STUDY_PACK_INSTRUCTIONS = buildStudyPackInstructions({

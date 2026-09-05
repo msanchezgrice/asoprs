@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { buildStudyPackInstructions, buildStudyPackText } from "./study-pack";
+import {
+  buildStudyPackInstructions,
+  buildStudyPackText,
+  distributeStudyPackCorrectAnswers,
+} from "./study-pack";
 
 describe("buildStudyPackText", () => {
   test("renders board-style MCQ output with answer keys by section", () => {
@@ -81,5 +85,38 @@ describe("buildStudyPackText", () => {
     );
     expect(instructions).toContain("exactly 22 high-yield flashcards");
     expect(instructions).toContain("exactly 3 answer choices");
+    expect(instructions).toContain(
+      "Distribute correct answers as evenly as possible across A, B, and C"
+    );
+  });
+});
+
+describe("distributeStudyPackCorrectAnswers", () => {
+  test("evenly varies answer positions while preserving the correct answer text", () => {
+    const mcqs = Array.from({ length: 25 }, (_, index) => ({
+      question: `Question ${index + 1}`,
+      options: [
+        `Correct ${index + 1}`,
+        `Distractor one ${index + 1}`,
+        `Distractor two ${index + 1}`,
+      ] as [string, string, string],
+      correctIndex: 0,
+      explanation: `Explanation ${index + 1}`,
+    }));
+
+    const distributed = distributeStudyPackCorrectAnswers(mcqs);
+    const answerCounts = [0, 0, 0];
+
+    distributed.forEach((mcq, index) => {
+      answerCounts[mcq.correctIndex] += 1;
+      expect(mcq.options[mcq.correctIndex]).toBe(`Correct ${index + 1}`);
+      expect(mcq.question).toBe(`Question ${index + 1}`);
+      expect(mcq.explanation).toBe(`Explanation ${index + 1}`);
+      if (index > 0) {
+        expect(mcq.correctIndex).not.toBe(distributed[index - 1].correctIndex);
+      }
+    });
+
+    expect(Math.max(...answerCounts) - Math.min(...answerCounts)).toBeLessThanOrEqual(1);
   });
 });
