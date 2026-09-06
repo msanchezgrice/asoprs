@@ -14,8 +14,10 @@ import {
   DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
   DEFAULT_STUDY_PACK_MCQ_COUNT,
   distributeStudyPackCorrectAnswers,
+  MAX_STUDY_PACK_MEMORY_LINES,
   sanitizeStudyPackCount,
   STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION,
+  STUDY_PACK_MEMORY_LINES_INSTRUCTION,
   type StudyPack,
   type StudyPackContentMode,
   type StudyPackFlashcard,
@@ -55,6 +57,7 @@ function parseGeneratedStudyPack(raw: string) {
       front?: string;
       back?: string;
     }>;
+    highYieldPearls?: unknown[];
   };
 
   return {
@@ -91,6 +94,17 @@ function parseGeneratedStudyPack(raw: string) {
         front: item.front.trim(),
         back: item.back.trim(),
       })),
+    highYieldPearls: (parsed.highYieldPearls || [])
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter(
+        (item, index, items) =>
+          items.findIndex(
+            (candidate) => candidate.toLowerCase() === item.toLowerCase()
+          ) === index
+      )
+      .slice(0, MAX_STUDY_PACK_MEMORY_LINES),
   };
 }
 
@@ -104,10 +118,10 @@ async function generateSectionContent(
   const model = getGemini();
   const modeInstructions =
     contentMode === "mcq"
-      ? `Write exactly ${mcqCount} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation. ${STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION}`
+      ? `Write exactly ${mcqCount} board-style MCQs. Every question must have exactly 3 answer choices in an "options" array and a single numeric "correctIndex" from 0 to 2. Include a short explanation. ${STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION} ${STUDY_PACK_MEMORY_LINES_INSTRUCTION} Include up to ${MAX_STUDY_PACK_MEMORY_LINES} unique strings in "highYieldPearls"; derive each memory line from the correct answers and explanations, prioritizing memorable associations, anatomy, timing, numbers, management, and complications.`
       : contentMode === "flashcards"
         ? `Write exactly ${flashcardCount} high-yield flashcards with concise but information-dense answers.`
-        : `Write exactly ${mcqCount} board-style MCQs and exactly ${flashcardCount} high-yield flashcards.`;
+        : `Write exactly ${mcqCount} board-style MCQs and exactly ${flashcardCount} high-yield flashcards. ${STUDY_PACK_MEMORY_LINES_INSTRUCTION} Include up to ${MAX_STUDY_PACK_MEMORY_LINES} unique strings in "highYieldPearls"; derive each memory line from the correct answers and explanations.`;
 
   const prompt = `
 Create ASOPRS board-review study material for the section "${doc.title}".
@@ -132,9 +146,12 @@ Output requirements:
       "front": "string",
       "back": "string"
     }
+  ],
+  "highYieldPearls": [
+    "Concise standalone memory line derived from the correct answers and explanations"
   ]
 }
-- Omit arrays that are not requested.
+- Omit arrays that are not requested. Include "highYieldPearls" whenever MCQs are requested; omit it for flashcard-only output.
 - Focus only on high-yield concepts.
 - Avoid filler, repetition, and low-value trivia.
 - ${modeInstructions}
@@ -166,11 +183,14 @@ ${doc.content.slice(0, MAX_SOURCE_CHARS)}
         contentMode === "mcq"
           ? []
           : parsed.flashcards.slice(0, flashcardCount);
+      const highYieldPearls =
+        contentMode === "flashcards" ? [] : parsed.highYieldPearls;
 
       if (
-        (contentMode === "mcq" && mcqs.length === 0) ||
+        (contentMode === "mcq" && (mcqs.length === 0 || highYieldPearls.length === 0)) ||
         (contentMode === "flashcards" && flashcards.length === 0) ||
-        (contentMode === "both" && (mcqs.length === 0 || flashcards.length === 0))
+        (contentMode === "both" &&
+          (mcqs.length === 0 || flashcards.length === 0 || highYieldPearls.length === 0))
       ) {
         throw new Error(`Empty generator response for ${doc.title}.`);
       }
@@ -181,6 +201,7 @@ ${doc.content.slice(0, MAX_SOURCE_CHARS)}
         category: doc.category,
         mcqs,
         flashcards,
+        highYieldPearls,
       } satisfies StudyPackSection;
     } catch (error) {
       lastError = error;
@@ -216,6 +237,7 @@ async function generateCombinedSectionContent(
     category: doc.category,
     mcqs: mcqSection.mcqs,
     flashcards: flashcardSection.flashcards,
+    highYieldPearls: mcqSection.highYieldPearls,
   } satisfies StudyPackSection;
 }
 
@@ -314,7 +336,13 @@ function headingParagraph(
 export async function buildStudyPackDocx(pack: StudyPack) {
   const text = buildStudyPackText(pack);
   const sectionTitles = new Set(pack.sections.map((section) => section.title));
-  const specialHeadings = new Set(["MCQS", "FLASHCARDS", "ANSWER KEY", "EXPLANATIONS"]);
+  const specialHeadings = new Set([
+    "MCQS",
+    "FLASHCARDS",
+    "ANSWER KEY",
+    "EXPLANATIONS",
+    "HIGH-YIELD ASOPRS MEMORY LINES",
+  ]);
 
   const children = text.split("\n").map((line, index) => {
     if (!line.trim()) {
@@ -424,7 +452,13 @@ export async function buildStudyPackPdf(pack: StudyPack) {
   };
 
   const sectionTitles = new Set(pack.sections.map((section) => section.title));
-  const specialHeadings = new Set(["MCQS", "FLASHCARDS", "ANSWER KEY", "EXPLANATIONS"]);
+  const specialHeadings = new Set([
+    "MCQS",
+    "FLASHCARDS",
+    "ANSWER KEY",
+    "EXPLANATIONS",
+    "HIGH-YIELD ASOPRS MEMORY LINES",
+  ]);
 
   text.split("\n").forEach((rawLine, index) => {
     const line = rawLine.trimEnd();

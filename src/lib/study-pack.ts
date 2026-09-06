@@ -7,8 +7,11 @@ export const DEFAULT_STUDY_PACK_MCQ_COUNT = 50;
 export const DEFAULT_STUDY_PACK_FLASHCARD_COUNT = 30;
 export const MIN_STUDY_PACK_ITEM_COUNT = 1;
 export const MAX_STUDY_PACK_ITEM_COUNT = 100;
+export const MAX_STUDY_PACK_MEMORY_LINES = 12;
 export const STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION =
   "Distribute correct answers as evenly as possible across A, B, and C, and avoid predictable sequences or long runs of the same answer position.";
+export const STUDY_PACK_MEMORY_LINES_INSTRUCTION =
+  "Following the answer key and explanations, create concise high-yield ASOPRS memory lines that distill the most testable facts into standalone bullets.";
 
 export interface StudyPackRequest {
   selectedDocumentIds: string[];
@@ -37,6 +40,7 @@ export interface StudyPackSection {
   category?: Category;
   mcqs: StudyPackMcq[];
   flashcards: StudyPackFlashcard[];
+  highYieldPearls?: string[];
 }
 
 export interface StudyPack {
@@ -97,7 +101,8 @@ export function buildStudyPackInstructions(params: {
     lines.push(
       `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions.`,
       "Use exactly 3 answer choices per question, include an answer key, and add concise explanations.",
-      STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION
+      STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION,
+      STUDY_PACK_MEMORY_LINES_INSTRUCTION
     );
   } else if (params.contentMode === "flashcards") {
     lines.push(
@@ -108,6 +113,7 @@ export function buildStudyPackInstructions(params: {
     lines.push(
       `For each selected section, write exactly ${mcqCount} board-style multiple-choice questions with exactly 3 answer choices, an answer key, and concise explanations.`,
       STUDY_PACK_ANSWER_DISTRIBUTION_INSTRUCTION,
+      STUDY_PACK_MEMORY_LINES_INSTRUCTION,
       `Also write exactly ${flashcardCount} high-yield flashcards for the same section.`
     );
   }
@@ -247,6 +253,19 @@ function buildMcqSection(section: StudyPackSection): string {
 
   if (explanations.length > 0) {
     lines.push("", "EXPLANATIONS", "", ...explanations);
+  }
+
+  const highYieldPearls = (section.highYieldPearls ?? [])
+    .map((pearl) => pearl.trim())
+    .filter(Boolean);
+
+  if (highYieldPearls.length > 0) {
+    lines.push(
+      "",
+      "HIGH-YIELD ASOPRS MEMORY LINES",
+      "",
+      ...highYieldPearls.map((pearl) => `• ${pearl}`)
+    );
   }
 
   return lines.join("\n");

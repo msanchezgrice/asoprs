@@ -12,6 +12,7 @@ import {
   buildStudyPackText,
   DEFAULT_STUDY_PACK_FLASHCARD_COUNT,
   DEFAULT_STUDY_PACK_MCQ_COUNT,
+  MAX_STUDY_PACK_MEMORY_LINES,
   sanitizeStudyPackCount,
   type StudyPack,
   type StudyPackContentMode,
@@ -63,7 +64,12 @@ function isValidStudyPack(value: unknown): value is StudyPack {
       !section || typeof section !== "object" ||
       !isBoundedText(section.title, 200) ||
       !Array.isArray(section.mcqs) || section.mcqs.length > MAX_GENERATION_ITEMS_PER_DOCUMENT ||
-      !Array.isArray(section.flashcards) || section.flashcards.length > MAX_GENERATION_ITEMS_PER_DOCUMENT
+      !Array.isArray(section.flashcards) || section.flashcards.length > MAX_GENERATION_ITEMS_PER_DOCUMENT ||
+      (section.highYieldPearls !== undefined && (
+        !Array.isArray(section.highYieldPearls) ||
+        section.highYieldPearls.length > MAX_STUDY_PACK_MEMORY_LINES ||
+        !section.highYieldPearls.every((pearl) => isBoundedText(pearl, 1_000))
+      ))
     ) {
       return false;
     }

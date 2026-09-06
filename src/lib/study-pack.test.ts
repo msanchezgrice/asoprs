@@ -26,6 +26,10 @@ describe("buildStudyPackText", () => {
             },
           ],
           flashcards: [],
+          highYieldPearls: [
+            "Cicatricial entropion is driven by posterior lamellar shortening.",
+            "Posterior lamellar scarring rotates the eyelid margin inward.",
+          ],
         },
       ],
     });
@@ -38,6 +42,13 @@ describe("buildStudyPackText", () => {
     expect(text).toContain("C. Isolated canthal laxity");
     expect(text).toContain("ANSWER KEY");
     expect(text).toContain("1-A");
+    expect(text).toContain("HIGH-YIELD ASOPRS MEMORY LINES");
+    expect(text).toContain(
+      "• Cicatricial entropion is driven by posterior lamellar shortening."
+    );
+    expect(text.indexOf("HIGH-YIELD ASOPRS MEMORY LINES")).toBeGreaterThan(
+      text.indexOf("EXPLANATIONS")
+    );
   });
 
   test("renders combined mcq and flashcard output in one export", () => {
@@ -87,6 +98,9 @@ describe("buildStudyPackText", () => {
     expect(instructions).toContain("exactly 3 answer choices");
     expect(instructions).toContain(
       "Distribute correct answers as evenly as possible across A, B, and C"
+    );
+    expect(instructions).toContain(
+      "Following the answer key and explanations, create concise high-yield ASOPRS memory lines"
     );
   });
 });
