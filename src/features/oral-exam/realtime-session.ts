@@ -1,7 +1,7 @@
 const OPENAI_REALTIME_CLIENT_SECRET_URL =
   "https://api.openai.com/v1/realtime/client_secrets";
 
-export const DEFAULT_ORAL_EXAM_REALTIME_MODEL = "gpt-realtime-2";
+export const DEFAULT_ORAL_EXAM_REALTIME_MODEL = "gpt-realtime-2.1";
 export const DEFAULT_ORAL_EXAM_REALTIME_VOICE = "marin";
 export const DEFAULT_ORAL_EXAM_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 
@@ -49,14 +49,9 @@ export function buildOralExamRealtimeSessionPayload({
           transcription: {
             model: transcriptionModel,
           },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 700,
-            create_response: false,
-            interrupt_response: true,
-          },
+          // The candidate explicitly commits an answer. Silence is thinking time,
+          // not an instruction to advance the oral exam.
+          turn_detection: null,
         },
         output: {
           voice,
@@ -103,12 +98,16 @@ export async function createOralExamRealtimeClientSecret({
   return (await response.json()) as OralExamRealtimeClientSecret;
 }
 
-export function buildExaminerReadAloudEvent(text: string) {
+export function buildExaminerReadAloudEvent(text: string, messageId?: string) {
   return {
     type: "response.create",
     response: {
       conversation: "none",
       output_modalities: ["audio"],
+      metadata: {
+        purpose: "oral_examiner_read_aloud",
+        ...(messageId ? { message_id: messageId } : {}),
+      },
       instructions:
         "Read the provided examiner script exactly. Do not add clinical content, diagnosis labels, source labels, or commentary. Do not say you cannot see the image or exam materials.",
       input: [
@@ -125,6 +124,14 @@ export function buildExaminerReadAloudEvent(text: string) {
       ],
     },
   };
+}
+
+export function buildStartAnswerEvent() {
+  return { type: "input_audio_buffer.clear" } as const;
+}
+
+export function buildFinishAnswerEvent() {
+  return { type: "input_audio_buffer.commit" } as const;
 }
 
 export function buildExaminerReadAloudEvents(text: string) {

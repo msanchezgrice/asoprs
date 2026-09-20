@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { createOralExamRealtimeClientSecret } from "@/features/oral-exam/realtime-session";
+import {
+  createOralExamRealtimeClientSecret,
+  DEFAULT_ORAL_EXAM_REALTIME_MODEL,
+} from "@/features/oral-exam/realtime-session";
 import { enforcePaidRateLimit, requireSameOrigin, requireUser } from "@/lib/api-security";
 
 export async function POST(request: Request) {
@@ -29,7 +32,9 @@ export async function POST(request: Request) {
   try {
     const clientSecret = await createOralExamRealtimeClientSecret({
       apiKey,
-      model: process.env.OPENAI_REALTIME_MODEL,
+      // Pin the oral exam to the reviewed Realtime contract. An older deployment
+      // environment override must not silently roll the experience back.
+      model: DEFAULT_ORAL_EXAM_REALTIME_MODEL,
       voice: process.env.OPENAI_REALTIME_VOICE,
       transcriptionModel: process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL,
     });

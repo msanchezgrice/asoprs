@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildExaminerReadAloudEvent,
-  buildExaminerReadAloudEvents,
+  buildFinishAnswerEvent,
   buildOralExamRealtimeInstructions,
   buildOralExamRealtimeSessionPayload,
+  buildStartAnswerEvent,
   createOralExamRealtimeClientSecret,
 } from "./realtime-session";
 
@@ -40,8 +41,9 @@ describe("oral exam realtime session", () => {
 
     expect(payload.expires_after.seconds).toBeLessThanOrEqual(600);
     expect(payload.session.type).toBe("realtime");
+    expect(payload.session.model).toBe("gpt-realtime-2.1");
     expect(payload.session.audio.input.transcription.model).toBeTruthy();
-    expect(payload.session.audio.input.turn_detection.create_response).toBe(false);
+    expect(payload.session.audio.input.turn_detection).toBeNull();
     expect(serializedPayload).not.toContain("rhabdomyosarcoma");
     expect(serializedPayload).not.toContain("sebaceous");
     expect(serializedPayload).not.toContain("case source");
@@ -64,30 +66,30 @@ describe("oral exam realtime session", () => {
 
   it("builds a read-aloud response event without adding hidden case instructions", () => {
     const event = buildExaminerReadAloudEvent(
-      "History: The patient has painless proptosis."
+      "History: The patient has painless proptosis.",
+      "case-1-opening"
     );
 
     expect(event.type).toBe("response.create");
     expect(event.response.conversation).toBe("none");
     expect(event.response.output_modalities).toEqual(["audio"]);
+    expect(event.response.metadata).toEqual({
+      purpose: "oral_examiner_read_aloud",
+      message_id: "case-1-opening",
+    });
     expect(JSON.stringify(event)).toContain(
       "History: The patient has painless proptosis."
     );
     expect(JSON.stringify(event).toLowerCase()).not.toContain("final diagnosis");
   });
 
-  it("builds a concrete conversation item before requesting audio", () => {
-    const events = buildExaminerReadAloudEvents(
-      "Describe the visible photograph and ask for a differential."
-    );
-
-    expect(events).toHaveLength(2);
-    expect(events[0].type).toBe("conversation.item.create");
-    expect(JSON.stringify(events[0])).toContain(
-      "Describe the visible photograph"
-    );
-    expect(events[1].type).toBe("response.create");
-    expect(JSON.stringify(events[1]).toLowerCase()).toContain("latest examiner script");
+  it("uses explicit candidate answer boundaries instead of silence detection", () => {
+    expect(buildStartAnswerEvent()).toEqual({
+      type: "input_audio_buffer.clear",
+    });
+    expect(buildFinishAnswerEvent()).toEqual({
+      type: "input_audio_buffer.commit",
+    });
   });
 
   it("instructs the voice model not to claim it lacks image or material access", () => {

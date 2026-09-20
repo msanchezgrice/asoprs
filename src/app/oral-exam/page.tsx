@@ -30,7 +30,11 @@ import {
   getResponseAudioTranscriptDelta,
   parseRealtimeEvent,
 } from "@/features/oral-exam/realtime-client";
-import { buildExaminerReadAloudEvents } from "@/features/oral-exam/realtime-session";
+import {
+  buildExaminerReadAloudEvent,
+  buildFinishAnswerEvent,
+  buildStartAnswerEvent,
+} from "@/features/oral-exam/realtime-session";
 import { resolveOralExamPdfUrl } from "@/features/oral-exam/pdf-url";
 import {
   ORAL_EXAM_CASES,
@@ -67,6 +71,13 @@ type ChatMessage = {
 };
 
 type VoiceMode = "off" | "connecting" | "openai" | "error";
+type VoiceActivity =
+  | "idle"
+  | "ready"
+  | "recording"
+  | "transcribing"
+  | "evaluating"
+  | "speaking";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
@@ -143,14 +154,20 @@ export default function OralExamPage() {
   const [imageWidth, setImageWidth] = useState(520);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("off");
+  const [voiceActivity, setVoiceActivity] = useState<VoiceActivity>("idle");
   const [voiceStatus, setVoiceStatus] = useState("Voice off");
   const [liveVoiceText, setLiveVoiceText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenExaminerIdRef = useRef<string | null>(null);
   const submitTurnRef = useRef<(text: string) => void>(() => {});
+  const awaitingTranscriptRef = useRef(false);
+  const seenTranscriptItemIdsRef = useRef(new Set<string>());
+  const turnInFlightRef = useRef(false);
+  const sessionGenerationRef = useRef(0);
 
   const stopVoice = useCallback((updateState = true) => {
     dataChannelRef.current?.close();
@@ -159,14 +176,18 @@ export default function OralExamPage() {
     peerConnectionRef.current = null;
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
+    awaitingTranscriptRef.current = false;
+    turnInFlightRef.current = false;
 
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
     }
     if (updateState) {
       setVoiceMode("off");
+      setVoiceActivity("idle");
       setVoiceStatus("Voice off");
       setLiveVoiceText("");
+      setIsSubmitting(false);
     }
   }, []);
 
@@ -196,11 +217,26 @@ export default function OralExamPage() {
       ORAL_EXAM_CASES.find((item) => item.id === nextCaseId) ??
       ORAL_EXAM_CASES[0];
     lastSpokenExaminerIdRef.current = null;
+    sessionGenerationRef.current += 1;
+    awaitingTranscriptRef.current = false;
+    turnInFlightRef.current = false;
+    seenTranscriptItemIdsRef.current.clear();
+    micStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    if (dataChannelRef.current?.readyState === "open") {
+      dataChannelRef.current.send(
+        JSON.stringify({ type: "input_audio_buffer.clear" })
+      );
+      setVoiceActivity("ready");
+      setVoiceStatus("Ready — press Start answer");
+    }
     setSelectedCaseId(nextCase.id);
     setState(getInitialOralExamState(nextCase.id));
     setMessages(buildInitialMessages(nextCase));
     setInput("");
     setScore(0);
+    setIsSubmitting(false);
   }
 
   async function requestOralExamTurn(
@@ -231,37 +267,50 @@ export default function OralExamPage() {
 
   async function submitTurn(text: string) {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || turnInFlightRef.current) return;
 
     const currentState = state;
+    const currentCaseId = selectedCase.id;
+    const generation = sessionGenerationRef.current;
+    turnInFlightRef.current = true;
+    setIsSubmitting(true);
+    if (voiceMode === "openai") {
+      setVoiceActivity("evaluating");
+      setVoiceStatus("Evaluating answer");
+    }
+
     const result = await requestOralExamTurn(
-      selectedCase.id,
+      currentCaseId,
       currentState,
       trimmed
     ).catch(() =>
       handleOralExamTurn({
-        oralCaseId: selectedCase.id,
+        oralCaseId: currentCaseId,
         state: currentState,
         userText: trimmed,
       })
     );
+
+    if (generation !== sessionGenerationRef.current) return;
 
     setState(result.state);
     setScore((current) => Math.max(current, result.score.total));
     setMessages((current) => [
       ...current,
       {
-        id: `${selectedCase.id}-${currentState.turnCount + 1}-candidate`,
+        id: `${currentCaseId}-${currentState.turnCount + 1}-candidate`,
         role: "candidate",
         text: trimmed,
       },
       {
-        id: `${selectedCase.id}-${currentState.turnCount + 1}-examiner`,
+        id: `${currentCaseId}-${currentState.turnCount + 1}-examiner`,
         role: "examiner",
         text: result.examinerMessage,
       },
     ]);
     setInput("");
+    turnInFlightRef.current = false;
+    setIsSubmitting(false);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -272,15 +321,20 @@ export default function OralExamPage() {
   submitTurnRef.current = submitTurn;
 
   const speakExaminerText = useCallback(
-    (text: string) => {
+    (text: string, messageId: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
       const channel = dataChannelRef.current;
       if (voiceMode === "openai" && channel?.readyState === "open") {
-        for (const event of buildExaminerReadAloudEvents(trimmed)) {
-          channel.send(JSON.stringify(event));
-        }
+        micStreamRef.current?.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+        });
+        setVoiceActivity("speaking");
+        setVoiceStatus("Examiner speaking");
+        channel.send(
+          JSON.stringify(buildExaminerReadAloudEvent(trimmed, messageId))
+        );
         return;
       }
 
@@ -308,6 +362,7 @@ export default function OralExamPage() {
     });
     micStreamRef.current = micStream;
     micStream.getAudioTracks().forEach((track) => {
+      track.enabled = false;
       peerConnection.addTrack(track, micStream);
     });
 
@@ -315,25 +370,41 @@ export default function OralExamPage() {
     dataChannelRef.current = dataChannel;
     dataChannel.addEventListener("open", () => {
       setVoiceMode("openai");
-      setVoiceStatus("OpenAI Realtime");
+      setVoiceActivity("ready");
+      setVoiceStatus("Ready — press Start answer");
     });
     dataChannel.addEventListener("message", (event) => {
       const realtimeEvent = parseRealtimeEvent(String(event.data));
       if (!realtimeEvent) return;
 
-      const userTranscript = getCompletedInputTranscript(realtimeEvent);
-      if (userTranscript) {
+      const completedInput = getCompletedInputTranscript(realtimeEvent);
+      if (
+        completedInput &&
+        awaitingTranscriptRef.current &&
+        !seenTranscriptItemIdsRef.current.has(completedInput.itemId)
+      ) {
+        awaitingTranscriptRef.current = false;
+        seenTranscriptItemIdsRef.current.add(completedInput.itemId);
         setLiveVoiceText("");
-        submitTurnRef.current(userTranscript);
+        submitTurnRef.current(completedInput.transcript);
         return;
       }
 
       const assistantDelta = getResponseAudioTranscriptDelta(realtimeEvent);
       if (assistantDelta) {
+        setVoiceActivity("speaking");
+        setVoiceStatus("Examiner speaking");
         setLiveVoiceText((current) => `${current}${assistantDelta}`);
       }
       if (realtimeEvent.type === "response.done") {
         setLiveVoiceText("");
+        setVoiceActivity("ready");
+        setVoiceStatus("Ready — press Start answer");
+      }
+      if (realtimeEvent.type === "error") {
+        awaitingTranscriptRef.current = false;
+        setVoiceActivity("ready");
+        setVoiceStatus("Voice error — try Start answer again");
       }
     });
 
@@ -389,9 +460,51 @@ export default function OralExamPage() {
       micStreamRef.current = null;
 
       setVoiceMode("error");
+      setVoiceActivity("idle");
       setVoiceStatus(error instanceof Error ? error.message : "Voice unavailable");
     }
   }, [connectOpenAIRealtime]);
+
+  const startAnswer = useCallback(() => {
+    const channel = dataChannelRef.current;
+    if (
+      voiceMode !== "openai" ||
+      channel?.readyState !== "open" ||
+      turnInFlightRef.current ||
+      voiceActivity === "speaking" ||
+      voiceActivity === "transcribing"
+    ) {
+      return;
+    }
+
+    awaitingTranscriptRef.current = false;
+    channel.send(JSON.stringify(buildStartAnswerEvent()));
+    micStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    setLiveVoiceText("");
+    setVoiceActivity("recording");
+    setVoiceStatus("Recording — pauses are okay");
+  }, [voiceActivity, voiceMode]);
+
+  const finishAnswer = useCallback(() => {
+    const channel = dataChannelRef.current;
+    if (
+      voiceMode !== "openai" ||
+      channel?.readyState !== "open" ||
+      voiceActivity !== "recording"
+    ) {
+      return;
+    }
+
+    micStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    awaitingTranscriptRef.current = true;
+    channel.send(JSON.stringify(buildFinishAnswerEvent()));
+    setVoiceActivity("transcribing");
+    setVoiceStatus("Transcribing answer");
+  }, [voiceActivity, voiceMode]);
 
   useEffect(() => {
     if (voiceMode !== "openai") return;
@@ -401,7 +514,7 @@ export default function OralExamPage() {
     if (lastSpokenExaminerIdRef.current === lastMessage.id) return;
 
     lastSpokenExaminerIdRef.current = lastMessage.id;
-    speakExaminerText(lastMessage.text);
+    speakExaminerText(lastMessage.text, lastMessage.id);
   }, [messages, speakExaminerText, voiceMode]);
 
   const revealedFigures = state.revealedFigureIds
@@ -418,6 +531,12 @@ export default function OralExamPage() {
       : isVoiceActive
         ? "Stop voice"
         : "Start voice";
+  const canStartAnswer =
+    voiceMode === "openai" &&
+    voiceActivity === "ready" &&
+    !isSubmitting;
+  const canFinishAnswer =
+    voiceMode === "openai" && voiceActivity === "recording";
 
   return (
     <div className="min-h-dvh bg-parchment">
@@ -551,6 +670,28 @@ export default function OralExamPage() {
                 {isVoiceActive ? <MicOff size={14} /> : <Mic size={14} />}
                 {voiceButtonLabel}
               </button>
+              {voiceMode === "openai" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={startAnswer}
+                    disabled={!canStartAnswer}
+                    className="inline-flex items-center gap-2 rounded-lg bg-sage px-3 py-2 text-xs font-semibold text-white transition hover:bg-sage-dark disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <Mic size={14} />
+                    Start answer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={finishAnswer}
+                    disabled={!canFinishAnswer}
+                    className="inline-flex items-center gap-2 rounded-lg border border-coral/35 bg-coral/10 px-3 py-2 text-xs font-semibold text-coral-dark transition hover:bg-coral/15 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <MicOff size={14} />
+                    Finish answer
+                  </button>
+                </>
+              )}
               <div className="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-lg border border-ivory-dark bg-ivory/30 px-3 text-xs font-medium text-warm-gray">
                 <Volume2 size={14} className="shrink-0" />
                 <span className="truncate">{voiceStatus}</span>
@@ -599,6 +740,7 @@ export default function OralExamPage() {
               <button
                 type="button"
                 onClick={() => submitTurn("What is the relevant history and examination?")}
+                disabled={isSubmitting}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-ivory-dark px-3 py-2 text-xs font-semibold text-navy transition hover:bg-ivory"
               >
                 <ClipboardCheck size={14} />
@@ -607,6 +749,7 @@ export default function OralExamPage() {
               <button
                 type="button"
                 onClick={() => submitTurn("I would get imaging and biopsy. What does the workup show?")}
+                disabled={isSubmitting}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-ivory-dark px-3 py-2 text-xs font-semibold text-navy transition hover:bg-ivory"
               >
                 <ImageIcon size={14} />
@@ -619,6 +762,7 @@ export default function OralExamPage() {
                     "I will give my final diagnosis, management, counseling, and surveillance plan."
                   )
                 }
+                disabled={isSubmitting}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-ivory-dark px-3 py-2 text-xs font-semibold text-navy transition hover:bg-ivory"
               >
                 <CheckCircle2 size={14} />
@@ -631,13 +775,14 @@ export default function OralExamPage() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 rows={2}
+                disabled={isSubmitting}
                 placeholder="Answer the examiner or ask for the next part of the case..."
                 className="min-h-12 flex-1 resize-none rounded-lg border border-ivory-dark bg-ivory/40 px-3 py-2 text-sm text-navy outline-none transition focus:border-coral focus:ring-2 focus:ring-coral/15"
               />
               <button
                 type="submit"
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-coral text-white transition hover:bg-coral-dark disabled:opacity-50"
-                disabled={!input.trim()}
+                disabled={!input.trim() || isSubmitting}
                 aria-label="Send answer"
               >
                 <Send size={18} />

@@ -1,5 +1,6 @@
 export type RealtimeEvent = {
   type?: string;
+  item_id?: unknown;
   transcript?: unknown;
   delta?: unknown;
 };
@@ -21,10 +22,14 @@ export function parseRealtimeEvent(raw: string): RealtimeEvent | null {
 export function getCompletedInputTranscript(event: RealtimeEvent) {
   if (
     event.type === "conversation.item.input_audio_transcription.completed" &&
+    typeof event.item_id === "string" &&
     typeof event.transcript === "string" &&
     event.transcript.trim()
   ) {
-    return event.transcript.trim();
+    return {
+      itemId: event.item_id,
+      transcript: event.transcript.trim(),
+    };
   }
 
   return null;

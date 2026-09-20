@@ -17,12 +17,14 @@ describe("oral exam realtime client helpers", () => {
   it("extracts completed input transcripts from Realtime events", () => {
     const event = {
       type: "conversation.item.input_audio_transcription.completed",
+      item_id: "item_123",
       transcript: "I would ask about pain and onset.",
     };
 
-    expect(getCompletedInputTranscript(event)).toBe(
-      "I would ask about pain and onset."
-    );
+    expect(getCompletedInputTranscript(event)).toEqual({
+      itemId: "item_123",
+      transcript: "I would ask about pain and onset.",
+    });
     expect(getCompletedInputTranscript({ type: "response.done" })).toBeNull();
   });
 
