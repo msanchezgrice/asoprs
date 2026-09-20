@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import { AccountPanel } from "@/components/auth/account-panel";
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { href: "/", label: "Library", icon: Library },
   { href: "/index", label: "Index", icon: List },
   { href: "/mindmap", label: "Mind Map", icon: GitFork },
   { href: "/study-resources", label: "Resources", icon: FileOutput },
-  { href: "/flashcards/images", label: "Images", icon: Image },
+  { href: "/image-library", label: "Image Library", icon: Image },
   { href: "/oral-exam", label: "Oral Exam", icon: Stethoscope },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/progress", label: "Progress", icon: BarChart3 },
