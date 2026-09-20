@@ -102,3 +102,62 @@ export const ACQUIRED_LAXITY_IMAGES = sortImageLibraryEntries(
       sourcePdfPath: card.storagePath,
     })),
 );
+
+export type ImageLibrarySection = {
+  id: string;
+  title: string;
+  resourceCount: number;
+  figureCount: number;
+  pdfPath: string;
+};
+
+export type ImageLibraryResource = {
+  id: string;
+  title: string;
+  figureCount: number;
+};
+
+export const IMAGE_LIBRARY_SECTIONS: ImageLibrarySection[] = [
+  {
+    id: "acquired-laxity",
+    title: FIRST_SECTION_TITLE,
+    resourceCount: ACQUIRED_LAXITY_RESOURCES.length,
+    figureCount: ACQUIRED_LAXITY_IMAGES.length,
+    pdfPath: "/image-library/asoprs-image-library-acquired-laxity.pdf",
+  },
+];
+
+function resourceId(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export const ACQUIRED_LAXITY_DOWNLOAD_RESOURCES: ImageLibraryResource[] =
+  ACQUIRED_LAXITY_RESOURCES.map((title) => ({
+    id: resourceId(title),
+    title,
+    figureCount: ACQUIRED_LAXITY_IMAGES.filter(
+      (entry) => entry.documentTitle === title,
+    ).length,
+  }));
+
+export function normalizeResourceSelection(resourceIds: string[]) {
+  const requestedIds = new Set(resourceIds);
+  return ACQUIRED_LAXITY_DOWNLOAD_RESOURCES.filter((resource) =>
+    requestedIds.has(resource.id),
+  ).map((resource) => resource.id);
+}
+
+export function selectedImagePageIndexes(resourceIds: string[]) {
+  const normalizedIds = new Set(normalizeResourceSelection(resourceIds));
+  const selectedTitles = new Set(
+    ACQUIRED_LAXITY_DOWNLOAD_RESOURCES.filter((resource) =>
+      normalizedIds.has(resource.id),
+    ).map((resource) => resource.title),
+  );
+  return ACQUIRED_LAXITY_IMAGES.map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => selectedTitles.has(entry.documentTitle))
+    .map(({ index }) => index);
+}

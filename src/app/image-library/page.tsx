@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Download, FileImage, Presentation } from "lucide-react";
+import { FileImage } from "lucide-react";
+import { ImageLibraryDownloadPanel } from "@/components/image-library-download-panel";
 import {
   ACQUIRED_LAXITY_IMAGES,
   ACQUIRED_LAXITY_RESOURCES,
@@ -29,15 +30,7 @@ export default function ImageLibraryPage() {
               curricular section, paired with its source subheading and description.
             </p>
           </div>
-          <a
-            href="/image-library/asoprs-image-library-acquired-laxity.pptx"
-            download
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-navy transition hover:-translate-y-0.5"
-          >
-            <Presentation size={17} />
-            Download PowerPoint
-            <Download size={15} />
-          </a>
+          <ImageLibraryDownloadPanel />
         </div>
       </header>
 
@@ -126,4 +119,3 @@ export default function ImageLibraryPage() {
     </main>
   );
 }
-

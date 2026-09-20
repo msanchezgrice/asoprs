@@ -27,6 +27,12 @@ const deckPath = path.join(
   "image-library",
   "asoprs-image-library-acquired-laxity.pptx",
 );
+const pdfPath = path.join(
+  projectRoot,
+  "public",
+  "image-library",
+  "asoprs-image-library-acquired-laxity.pdf",
+);
 const manifestPath = path.join(
   projectRoot,
   "public",
@@ -146,8 +152,18 @@ async function main() {
       ],
       { stdio: "inherit" },
     );
+    execFileSync(
+      pythonBin,
+      [
+        path.join(projectRoot, "scripts", "build-first-image-library-pdf.py"),
+        manifestPath,
+        pdfPath,
+      ],
+      { stdio: "inherit" },
+    );
     console.log(`Wrote ${ACQUIRED_LAXITY_IMAGES.length} images to ${outputRoot}`);
     console.log(`Wrote PowerPoint to ${deckPath}`);
+    console.log(`Wrote PDF to ${pdfPath}`);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
