@@ -1,0 +1,2218 @@
+{
+  "schemaVersion": 1,
+  "domains": [
+    {
+      "id": "eyelid-eyebrow",
+      "title": "Eyelid/Eyebrow",
+      "order": 0,
+      "groups": [
+        {
+          "id": "eyelid-eyebrow-acquired-laxity",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Acquired Laxity",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Acquired Laxity",
+          "order": 1,
+          "resourceCount": 3,
+          "imageEntryCount": 9,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "blepharochalasis-syndrome",
+              "title": "Blepharochalasis Syndrome",
+              "storagePath": "Eyelid-Eyebrow/Blepharochalasis Syndrome.pdf",
+              "resourceOrder": 1,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "eyelid-eyebrow-blepharochalasis-syndrome-figure-1"
+              ]
+            },
+            {
+              "id": "floppy-eyelid-syndrome",
+              "title": "Floppy Eyelid Syndrome",
+              "storagePath": "Eyelid-Eyebrow/Floppy Eyelid Syndrome.pdf",
+              "resourceOrder": 2,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "eyelid-eyebrow-floppy-eyelid-syndrome-figure-1",
+                "eyelid-eyebrow-floppy-eyelid-syndrome-figure-2",
+                "eyelid-eyebrow-floppy-eyelid-syndrome-figure-3",
+                "eyelid-eyebrow-floppy-eyelid-syndrome-figure-4"
+              ]
+            },
+            {
+              "id": "horizontal-eyelid-tightening",
+              "title": "Horizontal Eyelid Tightening",
+              "storagePath": "Eyelid-Eyebrow/Horizontal Eyelid Tightening.pdf",
+              "resourceOrder": 3,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "eyelid-eyebrow-horizontal-eyelid-tightening-figure-1",
+                "eyelid-eyebrow-horizontal-eyelid-tightening-figure-2",
+                "eyelid-eyebrow-horizontal-eyelid-tightening-figure-3",
+                "eyelid-eyebrow-horizontal-eyelid-tightening-figure-4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-eyelid-reconstruction",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Eyelid Reconstruction",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Eyelid Reconstruction",
+          "order": 4,
+          "resourceCount": 7,
+          "imageEntryCount": 26,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "lateral-and-medial-canthoplasty",
+              "title": "Lateral and Medial Canthoplasty",
+              "storagePath": "Eyelid-Eyebrow/Lateral and Medial Canthoplasty.pdf",
+              "resourceOrder": 4,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "eyelid-eyebrow-lateral-and-medial-canthoplasty-figure-1",
+                "eyelid-eyebrow-lateral-and-medial-canthoplasty-figure-2",
+                "eyelid-eyebrow-lateral-and-medial-canthoplasty-figure-3"
+              ]
+            },
+            {
+              "id": "reconstructing-large-defects-involving-forehead-cheeks",
+              "title": "Reconstructing Large Defects Involving Forehead, Cheeks",
+              "storagePath": "Eyelid-Eyebrow/Reconstructing Large Defects Involving Forehead, Cheeks.pdf",
+              "resourceOrder": 25,
+              "imageEntryCount": 6,
+              "imageEntryIds": [
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-1",
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-2",
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-3",
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-4",
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-5",
+                "eyelid-eyebrow-reconstructing-large-defects-involving-forehead-cheeks-figure-6"
+              ]
+            },
+            {
+              "id": "reconstruction-of-lower-eyelid-defects-involving-the-margin",
+              "title": "Reconstruction of Lower Eyelid Defects Involving the Margin",
+              "storagePath": "Eyelid-Eyebrow/Reconstruction of Lower Eyelid Defects Involving the Margin.pdf",
+              "resourceOrder": 26,
+              "imageEntryCount": 11,
+              "imageEntryIds": [
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-1",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-2",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-3",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-4",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-5",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-6",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-7",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-8",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-10",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-9",
+                "eyelid-eyebrow-reconstruction-of-lower-eyelid-defects-involving-the-margin-figure-11"
+              ]
+            },
+            {
+              "id": "reconstruction-of-medial-and-lateral-canthal-defects",
+              "title": "Reconstruction of Medial and Lateral Canthal Defects",
+              "storagePath": "Eyelid-Eyebrow/Reconstruction of Medial and Lateral Canthal Defects.pdf",
+              "resourceOrder": 27,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "eyelid-eyebrow-reconstruction-of-medial-and-lateral-canthal-defects-figure-1",
+                "eyelid-eyebrow-reconstruction-of-medial-and-lateral-canthal-defects-figure-2",
+                "eyelid-eyebrow-reconstruction-of-medial-and-lateral-canthal-defects-figure-3",
+                "eyelid-eyebrow-reconstruction-of-medial-and-lateral-canthal-defects-figure-4"
+              ]
+            },
+            {
+              "id": "mohs-micrographic-surgery",
+              "title": "Mohs Micrographic Surgery",
+              "storagePath": "Eyelid-Eyebrow/Mohs Micrographic Surgery.pdf",
+              "resourceOrder": 28,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "periocular-burns",
+              "title": "Periocular Burns",
+              "storagePath": "Eyelid-Eyebrow/Periocular Burns.pdf",
+              "resourceOrder": 29,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "eyelid-eyebrow-periocular-burns-figure-1",
+                "eyelid-eyebrow-periocular-burns-figure-2"
+              ]
+            },
+            {
+              "id": "upper-eyelid-reconstruction-involving-eyelid-margin",
+              "title": "Upper Eyelid Reconstruction Involving Eyelid Margin",
+              "storagePath": "Eyelid-Eyebrow/Upper Eyelid Reconstruction Involving Eyelid Margin.pdf",
+              "resourceOrder": 30,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-blepharoplasty",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Blepharoplasty",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Blepharoplasty",
+          "order": 5,
+          "resourceCount": 3,
+          "imageEntryCount": 12,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "lower-eyelid-blepharoplasty",
+              "title": "Lower Eyelid Blepharoplasty",
+              "storagePath": "Eyelid-Eyebrow/Lower Eyelid Blepharoplasty.pdf",
+              "resourceOrder": 5,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "eyelid-eyebrow-lower-eyelid-blepharoplasty-figure-1"
+              ]
+            },
+            {
+              "id": "periorbital-hollows",
+              "title": "Periorbital Hollows",
+              "storagePath": "Eyelid-Eyebrow/Periorbital Hollows.pdf",
+              "resourceOrder": 6,
+              "imageEntryCount": 9,
+              "imageEntryIds": [
+                "eyelid-eyebrow-periorbital-hollows-figure-1",
+                "eyelid-eyebrow-periorbital-hollows-figure-2",
+                "eyelid-eyebrow-periorbital-hollows-figure-3",
+                "eyelid-eyebrow-periorbital-hollows-figure-4",
+                "eyelid-eyebrow-periorbital-hollows-figure-5",
+                "eyelid-eyebrow-periorbital-hollows-figure-6",
+                "eyelid-eyebrow-periorbital-hollows-figure-7",
+                "eyelid-eyebrow-periorbital-hollows-figure-8",
+                "eyelid-eyebrow-periorbital-hollows-figure-9"
+              ]
+            },
+            {
+              "id": "upper-eyelid-blepharoplasty-cosmetic-and-functional-surgery",
+              "title": "Upper Eyelid Blepharoplasty- Cosmetic and Functional Surgery",
+              "storagePath": "Eyelid-Eyebrow/Upper Eyelid Blepharoplasty- Cosmetic and Functional Surgery.pdf",
+              "resourceOrder": 7,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "eyelid-eyebrow-upper-eyelid-blepharoplasty-cosmetic-and-functional-surgery-figure-1",
+                "eyelid-eyebrow-upper-eyelid-blepharoplasty-cosmetic-and-functional-surgery-figure-2"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-blepharoptosis",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Blepharoptosis",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Blepharoptosis",
+          "order": 8,
+          "resourceCount": 8,
+          "imageEntryCount": 37,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "aponeurotic-ptosis",
+              "title": "Aponeurotic Ptosis",
+              "storagePath": "Eyelid-Eyebrow/Aponeurotic Ptosis.pdf",
+              "resourceOrder": 8,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "eyelid-eyebrow-aponeurotic-ptosis-figure-1",
+                "eyelid-eyebrow-aponeurotic-ptosis-figure-2",
+                "eyelid-eyebrow-aponeurotic-ptosis-figure-3"
+              ]
+            },
+            {
+              "id": "myogenic-ptosis",
+              "title": "Myogenic Ptosis",
+              "storagePath": "Eyelid-Eyebrow/Myogenic Ptosis.pdf",
+              "resourceOrder": 9,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "eyelid-eyebrow-myogenic-ptosis-figure-1",
+                "eyelid-eyebrow-myogenic-ptosis-figure-2",
+                "eyelid-eyebrow-myogenic-ptosis-figure-3",
+                "eyelid-eyebrow-myogenic-ptosis-figure-4",
+                "eyelid-eyebrow-myogenic-ptosis-figure-5",
+                "eyelid-eyebrow-myogenic-ptosis-figure-6",
+                "eyelid-eyebrow-myogenic-ptosis-figure-7"
+              ]
+            },
+            {
+              "id": "external-transcutaneous-levator-advancement-resection-for-ptosis",
+              "title": "External (Transcutaneous) Levator Advancement (Resection) for Ptosis",
+              "storagePath": "Eyelid-Eyebrow/External (Transcutaneous) Levator Advancement (Resection) for Ptosis.pdf",
+              "resourceOrder": 10,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "eyelid-eyebrow-external-transcutaneous-levator-advancement-resection-for-ptosis-figure-1",
+                "eyelid-eyebrow-external-transcutaneous-levator-advancement-resection-for-ptosis-figure-2",
+                "eyelid-eyebrow-external-transcutaneous-levator-advancement-resection-for-ptosis-figure-3"
+              ]
+            },
+            {
+              "id": "frontalis-suspension",
+              "title": "Frontalis Suspension",
+              "storagePath": "Eyelid-Eyebrow/Frontalis Suspension.pdf",
+              "resourceOrder": 11,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "eyelid-eyebrow-frontalis-suspension-figure-1",
+                "eyelid-eyebrow-frontalis-suspension-figure-2",
+                "eyelid-eyebrow-frontalis-suspension-figure-3",
+                "eyelid-eyebrow-frontalis-suspension-figure-4",
+                "eyelid-eyebrow-frontalis-suspension-figure-5",
+                "eyelid-eyebrow-frontalis-suspension-figure-6",
+                "eyelid-eyebrow-frontalis-suspension-figure-7"
+              ]
+            },
+            {
+              "id": "internal-transconjunctival-levator-mullers-muscle-resection-approaches-for-ptosis",
+              "title": "Internal (Transconjunctival) Levator-Mullers Muscle Resection Approaches for Ptosis",
+              "storagePath": "Eyelid-Eyebrow/Internal (Transconjunctival) Levator-Mullers Muscle Resection Approaches for Ptosis.pdf",
+              "resourceOrder": 12,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "eyelid-eyebrow-internal-transconjunctival-levator-mullers-muscle-resection-approaches-for-ptosis-figure-1",
+                "eyelid-eyebrow-internal-transconjunctival-levator-mullers-muscle-resection-approaches-for-ptosis-figure-2",
+                "eyelid-eyebrow-internal-transconjunctival-levator-mullers-muscle-resection-approaches-for-ptosis-figure-3",
+                "eyelid-eyebrow-internal-transconjunctival-levator-mullers-muscle-resection-approaches-for-ptosis-figure-4"
+              ]
+            },
+            {
+              "id": "marcus-gunn-jaw-winking-syndrome",
+              "title": "Marcus Gunn Jaw-Winking Syndrome",
+              "storagePath": "Eyelid-Eyebrow/Marcus Gunn Jaw-Winking Syndrome.pdf",
+              "resourceOrder": 13,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "eyelid-eyebrow-marcus-gunn-jaw-winking-syndrome-figure-1",
+                "eyelid-eyebrow-marcus-gunn-jaw-winking-syndrome-figure-2"
+              ]
+            },
+            {
+              "id": "eyelid-pediatric-ptosis",
+              "title": "Eyelid Pediatric Ptosis",
+              "storagePath": "Eyelid-Eyebrow/Eyelid Pediatric Ptosis.pdf",
+              "resourceOrder": 14,
+              "imageEntryCount": 8,
+              "imageEntryIds": [
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-1",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-2",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-3",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-4",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-5",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-5a",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-5b",
+                "eyelid-eyebrow-eyelid-pediatric-ptosis-figure-6"
+              ]
+            },
+            {
+              "id": "traumatic-ptosis",
+              "title": "Traumatic Ptosis",
+              "storagePath": "Eyelid-Eyebrow/Traumatic Ptosis.pdf",
+              "resourceOrder": 15,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "eyelid-eyebrow-traumatic-ptosis-figure-1",
+                "eyelid-eyebrow-traumatic-ptosis-figure-2",
+                "eyelid-eyebrow-traumatic-ptosis-figure-3"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-root",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": null,
+          "isAuthoritativeSection": false,
+          "displayTitle": "General / standalone resources",
+          "order": 16,
+          "resourceCount": 2,
+          "imageEntryCount": 7,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "brow-lift",
+              "title": "Brow Lift",
+              "storagePath": "Eyelid-Eyebrow/Brow Lift.pdf",
+              "resourceOrder": 16,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "eyelid-retraction",
+              "title": "Eyelid Retraction",
+              "storagePath": "Eyelid-Eyebrow/Eyelid Retraction.pdf",
+              "resourceOrder": 31,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "eyelid-eyebrow-eyelid-retraction-figure-1",
+                "eyelid-eyebrow-eyelid-retraction-figure-2",
+                "eyelid-eyebrow-eyelid-retraction-figure-3",
+                "eyelid-eyebrow-eyelid-retraction-figure-4",
+                "eyelid-eyebrow-eyelid-retraction-figure-5",
+                "eyelid-eyebrow-eyelid-retraction-figure-6",
+                "eyelid-eyebrow-eyelid-retraction-figure-7"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-entropion-and-eyelashes",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Entropion and Eyelashes",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Entropion and Eyelashes",
+          "order": 17,
+          "resourceCount": 8,
+          "imageEntryCount": 11,
+          "zeroImageResourceCount": 3,
+          "resources": [
+            {
+              "id": "cicatricial-entropion",
+              "title": "Cicatricial Entropion",
+              "storagePath": "Eyelid-Eyebrow/Cicatricial Entropion.pdf",
+              "resourceOrder": 17,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "congenital-entropion",
+              "title": "Congenital Entropion",
+              "storagePath": "Eyelid-Eyebrow/Congenital Entropion.pdf",
+              "resourceOrder": 18,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "eyelid-eyebrow-congenital-entropion-figure-1"
+              ]
+            },
+            {
+              "id": "epiblepharon",
+              "title": "Epiblepharon",
+              "storagePath": "Eyelid-Eyebrow/Epiblepharon.pdf",
+              "resourceOrder": 19,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "involutional-or-senile-entropion",
+              "title": "Involutional or Senile Entropion",
+              "storagePath": "Eyelid-Eyebrow/Involutional or Senile Entropion.pdf",
+              "resourceOrder": 20,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "eyelid-eyebrow-involutional-or-senile-entropion-figure-1"
+              ]
+            },
+            {
+              "id": "ocular-cicatricial-pemphigoid-drug-induced-pemphigoid-and-stevens-johnson-syndrome",
+              "title": "Ocular Cicatricial Pemphigoid, Drug-Induced Pemphigoid, and Stevens-Johnson Syndrome",
+              "storagePath": "Eyelid-Eyebrow/Ocular Cicatricial Pemphigoid, Drug-Induced Pemphigoid, and Stevens-Johnson Syndrome.pdf",
+              "resourceOrder": 21,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "eyelid-eyebrow-ocular-cicatricial-pemphigoid-drug-induced-pemphigoid-and-stevens-johnson-syndrome-figure-1",
+                "eyelid-eyebrow-ocular-cicatricial-pemphigoid-drug-induced-pemphigoid-and-stevens-johnson-syndrome-figure-2"
+              ]
+            },
+            {
+              "id": "spastic-entropion",
+              "title": "Spastic Entropion",
+              "storagePath": "Eyelid-Eyebrow/Spastic Entropion.pdf",
+              "resourceOrder": 22,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "trachoma",
+              "title": "Trachoma",
+              "storagePath": "Eyelid-Eyebrow/Trachoma.pdf",
+              "resourceOrder": 23,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "eyelid-eyebrow-trachoma-figure-1",
+                "eyelid-eyebrow-trachoma-figure-2",
+                "eyelid-eyebrow-trachoma-figure-3"
+              ]
+            },
+            {
+              "id": "trichiasis",
+              "title": "Trichiasis",
+              "storagePath": "Eyelid-Eyebrow/Trichiasis.pdf",
+              "resourceOrder": 24,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "eyelid-eyebrow-trichiasis-figure-1",
+                "eyelid-eyebrow-trichiasis-figure-2",
+                "eyelid-eyebrow-trichiasis-figure-3",
+                "eyelid-eyebrow-trichiasis-figure-4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eyelid-eyebrow-conjunctiva",
+          "domainTitle": "Eyelid/Eyebrow",
+          "sectionTitle": "Conjunctiva",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Conjunctiva",
+          "order": 48,
+          "resourceCount": 1,
+          "imageEntryCount": 2,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "conjunctival-epithelial-malignancies",
+              "title": "Conjunctival Epithelial Malignancies",
+              "storagePath": "Eyelid-Eyebrow/Conjunctival Epithelial Malignancies.pdf",
+              "resourceOrder": 48,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "eyelid-eyebrow-conjunctival-epithelial-malignancies-figure-1",
+                "eyelid-eyebrow-conjunctival-epithelial-malignancies-figure-2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skin-conditions",
+      "title": "Skin Conditions",
+      "order": 1,
+      "groups": [
+        {
+          "id": "skin-conditions-benign",
+          "domainTitle": "Skin Conditions",
+          "sectionTitle": "Benign",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Benign",
+          "order": 32,
+          "resourceCount": 8,
+          "imageEntryCount": 14,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "acne-rosacea",
+              "title": "Acne Rosacea",
+              "storagePath": "Skin Conditions/Acne Rosacea.pdf",
+              "resourceOrder": 32,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "skin-conditions-acne-rosacea-figure-1",
+                "skin-conditions-acne-rosacea-figure-2"
+              ]
+            },
+            {
+              "id": "blepharitis-meibomitis-and-hordeola",
+              "title": "Blepharitis, Meibomitis, and Hordeola",
+              "storagePath": "Skin Conditions/Blepharitis, Meibomitis, and Hordeola.pdf",
+              "resourceOrder": 33,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "skin-conditions-blepharitis-meibomitis-and-hordeola-figure-1",
+                "skin-conditions-blepharitis-meibomitis-and-hordeola-figure-2",
+                "skin-conditions-blepharitis-meibomitis-and-hordeola-figure-3"
+              ]
+            },
+            {
+              "id": "eyelid-degenerative-and-inflammatory-disorders",
+              "title": "Eyelid Degenerative and Inflammatory Disorders",
+              "storagePath": "Skin Conditions/Eyelid Degenerative and Inflammatory Disorders.pdf",
+              "resourceOrder": 34,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "skin-conditions-eyelid-degenerative-and-inflammatory-disorders-figure-1a",
+                "skin-conditions-eyelid-degenerative-and-inflammatory-disorders-figure-1b",
+                "skin-conditions-eyelid-degenerative-and-inflammatory-disorders-figure-1",
+                "skin-conditions-eyelid-degenerative-and-inflammatory-disorders-figure-2"
+              ]
+            },
+            {
+              "id": "eyelid-edema",
+              "title": "Eyelid edema",
+              "storagePath": "Skin Conditions/Eyelid edema.pdf",
+              "resourceOrder": 35,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "milia",
+              "title": "Milia",
+              "storagePath": "Skin Conditions/Milia.pdf",
+              "resourceOrder": 36,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-milia-figure-1"
+              ]
+            },
+            {
+              "id": "chronic-plaque-psoriasis",
+              "title": "Chronic plaque psoriasis",
+              "storagePath": "Skin Conditions/Chronic plaque psoriasis.pdf",
+              "resourceOrder": 37,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-chronic-plaque-psoriasis-figure-1"
+              ]
+            },
+            {
+              "id": "spontaneous-urticaria-and-angioedema",
+              "title": "Spontaneous urticaria and angioedema",
+              "storagePath": "Skin Conditions/Spontaneous urticaria and angioedema.pdf",
+              "resourceOrder": 38,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "skin-conditions-spontaneous-urticaria-and-angioedema-figure-1",
+                "skin-conditions-spontaneous-urticaria-and-angioedema-figure-2"
+              ]
+            },
+            {
+              "id": "vitiligo",
+              "title": "Vitiligo",
+              "storagePath": "Skin Conditions/Vitiligo.pdf",
+              "resourceOrder": 39,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-vitiligo-figure-1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "skin-conditions-infectious-conditions",
+          "domainTitle": "Skin Conditions",
+          "sectionTitle": "Infectious Conditions",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Infectious Conditions",
+          "order": 40,
+          "resourceCount": 6,
+          "imageEntryCount": 4,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "erysipelas",
+              "title": "Erysipelas",
+              "storagePath": "Skin Conditions/Erysipelas.pdf",
+              "resourceOrder": 40,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-erysipelas-figure-1"
+              ]
+            },
+            {
+              "id": "periorbital-herpes-zoster",
+              "title": "Periorbital Herpes Zoster",
+              "storagePath": "Skin Conditions/Periorbital Herpes Zoster.pdf",
+              "resourceOrder": 41,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "molluscum-contagiosum",
+              "title": "Molluscum Contagiosum",
+              "storagePath": "Skin Conditions/Molluscum Contagiosum.pdf",
+              "resourceOrder": 42,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "periocular-herpes-simplex-virus-hsv",
+              "title": "Periocular Herpes simplex virus (HSV)",
+              "storagePath": "Skin Conditions/Periocular Herpes simplex virus (HSV).pdf",
+              "resourceOrder": 43,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-periocular-herpes-simplex-virus-hsv-figure-1"
+              ]
+            },
+            {
+              "id": "generalized-staphylococcal-scalded-skin-syndrome",
+              "title": "Generalized staphylococcal scalded skin syndrome",
+              "storagePath": "Skin Conditions/Generalized staphylococcal scalded skin syndrome.pdf",
+              "resourceOrder": 44,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-generalized-staphylococcal-scalded-skin-syndrome-figure-1"
+              ]
+            },
+            {
+              "id": "tinea-faciei",
+              "title": "Tinea faciei",
+              "storagePath": "Skin Conditions/Tinea faciei.pdf",
+              "resourceOrder": 45,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-tinea-faciei-figure-1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "skin-conditions-neoplasia",
+          "domainTitle": "Skin Conditions",
+          "sectionTitle": "Neoplasia",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Neoplasia",
+          "order": 46,
+          "resourceCount": 12,
+          "imageEntryCount": 50,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "benign-melanotic-skin-lesions",
+              "title": "Benign Melanotic Skin Lesions",
+              "storagePath": "Skin Conditions/Benign Melanotic Skin Lesions.pdf",
+              "resourceOrder": 46,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "skin-conditions-benign-melanotic-skin-lesions-figure-1"
+              ]
+            },
+            {
+              "id": "benign-eyelid-neoplasia",
+              "title": "Benign Eyelid Neoplasia",
+              "storagePath": "Skin Conditions/Benign Eyelid Neoplasia.pdf",
+              "resourceOrder": 47,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "skin-conditions-benign-eyelid-neoplasia-figure-1",
+                "skin-conditions-benign-eyelid-neoplasia-figure-2",
+                "skin-conditions-benign-eyelid-neoplasia-figure-3",
+                "skin-conditions-benign-eyelid-neoplasia-figure-4",
+                "skin-conditions-benign-eyelid-neoplasia-figure-5"
+              ]
+            },
+            {
+              "id": "conjunctival-melanoma",
+              "title": "Conjunctival Melanoma",
+              "storagePath": "Skin Conditions/Conjunctival Melanoma.pdf",
+              "resourceOrder": 49,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "skin-conditions-conjunctival-melanoma-figure-1",
+                "skin-conditions-conjunctival-melanoma-figure-2"
+              ]
+            },
+            {
+              "id": "actinic-keratosis",
+              "title": "Actinic Keratosis",
+              "storagePath": "Skin Conditions/Actinic Keratosis.pdf",
+              "resourceOrder": 50,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "skin-conditions-actinic-keratosis-figure-1",
+                "skin-conditions-actinic-keratosis-figure-2",
+                "skin-conditions-actinic-keratosis-figure-3",
+                "skin-conditions-actinic-keratosis-figure-4"
+              ]
+            },
+            {
+              "id": "basal-cell-carcinoma",
+              "title": "Basal Cell Carcinoma",
+              "storagePath": "Skin Conditions/Basal Cell Carcinoma.pdf",
+              "resourceOrder": 51,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "skin-conditions-basal-cell-carcinoma-figure-1",
+                "skin-conditions-basal-cell-carcinoma-figure-2",
+                "skin-conditions-basal-cell-carcinoma-figure-3"
+              ]
+            },
+            {
+              "id": "basal-cell-nevus-syndrome-gorlin-goltz-syndrome",
+              "title": "Basal Cell Nevus Syndrome (Gorlin-Goltz Syndrome)",
+              "storagePath": "Skin Conditions/Basal Cell Nevus Syndrome (Gorlin-Goltz Syndrome).pdf",
+              "resourceOrder": 52,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "skin-conditions-basal-cell-nevus-syndrome-gorlin-goltz-syndrome-figure-1",
+                "skin-conditions-basal-cell-nevus-syndrome-gorlin-goltz-syndrome-figure-2",
+                "skin-conditions-basal-cell-nevus-syndrome-gorlin-goltz-syndrome-figure-3",
+                "skin-conditions-basal-cell-nevus-syndrome-gorlin-goltz-syndrome-figure-4"
+              ]
+            },
+            {
+              "id": "keratoacanthoma-of-the-eyelid",
+              "title": "Keratoacanthoma of the Eyelid",
+              "storagePath": "Skin Conditions/Keratoacanthoma of the Eyelid.pdf",
+              "resourceOrder": 53,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "skin-conditions-keratoacanthoma-of-the-eyelid-figure-1",
+                "skin-conditions-keratoacanthoma-of-the-eyelid-figure-2",
+                "skin-conditions-keratoacanthoma-of-the-eyelid-figure-3",
+                "skin-conditions-keratoacanthoma-of-the-eyelid-figure-4",
+                "skin-conditions-keratoacanthoma-of-the-eyelid-figure-5"
+              ]
+            },
+            {
+              "id": "squamous-cell-carcinoma-of-the-eyelid",
+              "title": "Squamous Cell Carcinoma of the Eyelid",
+              "storagePath": "Skin Conditions/Squamous Cell Carcinoma of the Eyelid.pdf",
+              "resourceOrder": 54,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "skin-conditions-squamous-cell-carcinoma-of-the-eyelid-figure-1",
+                "skin-conditions-squamous-cell-carcinoma-of-the-eyelid-figure-2",
+                "skin-conditions-squamous-cell-carcinoma-of-the-eyelid-figure-3"
+              ]
+            },
+            {
+              "id": "lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia",
+              "title": "Lentigo Maligna, Lentigo Maligna Melanoma, and Melanocytic Hyperplasia",
+              "storagePath": "Skin Conditions/Lentigo Maligna, Lentigo Maligna Melanoma, and Melanocytic Hyperplasia.pdf",
+              "resourceOrder": 55,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-1",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-2",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-3",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-4",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-5",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-6",
+                "skin-conditions-lentigo-maligna-lentigo-maligna-melanoma-and-melanocytic-hyperplasia-figure-7"
+              ]
+            },
+            {
+              "id": "merkel-cell-carcinoma",
+              "title": "Merkel Cell Carcinoma",
+              "storagePath": "Skin Conditions/Merkel Cell Carcinoma.pdf",
+              "resourceOrder": 56,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "skin-conditions-merkel-cell-carcinoma-figure-1",
+                "skin-conditions-merkel-cell-carcinoma-figure-2",
+                "skin-conditions-merkel-cell-carcinoma-figure-3",
+                "skin-conditions-merkel-cell-carcinoma-figure-4",
+                "skin-conditions-merkel-cell-carcinoma-figure-5",
+                "skin-conditions-merkel-cell-carcinoma-figure-6",
+                "skin-conditions-merkel-cell-carcinoma-figure-7"
+              ]
+            },
+            {
+              "id": "microcystic-adnexal-carcinoma",
+              "title": "Microcystic Adnexal Carcinoma",
+              "storagePath": "Skin Conditions/Microcystic Adnexal Carcinoma.pdf",
+              "resourceOrder": 57,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "skin-conditions-microcystic-adnexal-carcinoma-figure-1",
+                "skin-conditions-microcystic-adnexal-carcinoma-figure-2"
+              ]
+            },
+            {
+              "id": "sebaceous-adenocarcinoma",
+              "title": "Sebaceous Adenocarcinoma",
+              "storagePath": "Skin Conditions/Sebaceous Adenocarcinoma.pdf",
+              "resourceOrder": 58,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "skin-conditions-sebaceous-adenocarcinoma-figure-1",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-2",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-3",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-4",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-5",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-6",
+                "skin-conditions-sebaceous-adenocarcinoma-figure-7"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "face",
+      "title": "Face",
+      "order": 2,
+      "groups": [
+        {
+          "id": "face-anatomy-and-surgery",
+          "domainTitle": "Face",
+          "sectionTitle": "Anatomy and Surgery",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Anatomy and Surgery",
+          "order": 59,
+          "resourceCount": 6,
+          "imageEntryCount": 32,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "anatomy-of-the-external-ear",
+              "title": "Anatomy of the External Ear",
+              "storagePath": "Face/Anatomy of the External Ear.pdf",
+              "resourceOrder": 59,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "face-anatomy-of-the-external-ear-figure-3"
+              ]
+            },
+            {
+              "id": "facial-implants",
+              "title": "Facial implants",
+              "storagePath": "Face/Facial implants.pdf",
+              "resourceOrder": 60,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "face-facial-implants-figure-1",
+                "face-facial-implants-figure-2",
+                "face-facial-implants-figure-3",
+                "face-facial-implants-figure-4",
+                "face-facial-implants-figure-5",
+                "face-facial-implants-figure-6",
+                "face-facial-implants-figure-7"
+              ]
+            },
+            {
+              "id": "necklift-platysmaplasty",
+              "title": "Necklift (Platysmaplasty)",
+              "storagePath": "Face/Necklift (Platysmaplasty).pdf",
+              "resourceOrder": 61,
+              "imageEntryCount": 8,
+              "imageEntryIds": [
+                "face-necklift-platysmaplasty-figure-1",
+                "face-necklift-platysmaplasty-figure-2",
+                "face-necklift-platysmaplasty-figure-3",
+                "face-necklift-platysmaplasty-figure-4",
+                "face-necklift-platysmaplasty-figure-5",
+                "face-necklift-platysmaplasty-figure-6",
+                "face-necklift-platysmaplasty-figure-7",
+                "face-necklift-platysmaplasty-figure-8"
+              ]
+            },
+            {
+              "id": "otoplasty-and-earlobe-surgery",
+              "title": "Otoplasty and Earlobe Surgery",
+              "storagePath": "Face/Otoplasty and Earlobe Surgery.pdf",
+              "resourceOrder": 62,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "face-otoplasty-and-earlobe-surgery-figure-1",
+                "face-otoplasty-and-earlobe-surgery-figure-2",
+                "face-otoplasty-and-earlobe-surgery-figure-3"
+              ]
+            },
+            {
+              "id": "rhinoplasty",
+              "title": "Rhinoplasty",
+              "storagePath": "Face/Rhinoplasty.pdf",
+              "resourceOrder": 63,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "face-rhinoplasty-figure-1",
+                "face-rhinoplasty-figure-2",
+                "face-rhinoplasty-figure-3",
+                "face-rhinoplasty-figure-4"
+              ]
+            },
+            {
+              "id": "rhytidectomy-facelift",
+              "title": "Rhytidectomy (Facelift)",
+              "storagePath": "Face/Rhytidectomy (Facelift).pdf",
+              "resourceOrder": 64,
+              "imageEntryCount": 9,
+              "imageEntryIds": [
+                "face-rhytidectomy-facelift-figure-1",
+                "face-rhytidectomy-facelift-figure-2",
+                "face-rhytidectomy-facelift-figure-3",
+                "face-rhytidectomy-facelift-figure-4",
+                "face-rhytidectomy-facelift-figure-5",
+                "face-rhytidectomy-facelift-figure-6",
+                "face-rhytidectomy-facelift-figure-7",
+                "face-rhytidectomy-facelift-figure-8",
+                "face-rhytidectomy-facelift-figure-9"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "face-injections-lasers-peels",
+          "domainTitle": "Face",
+          "sectionTitle": "Injections, Lasers, Peels",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Injections, Lasers, Peels",
+          "order": 65,
+          "resourceCount": 4,
+          "imageEntryCount": 13,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "botulinum-toxin-in-facial-aesthetics",
+              "title": "Botulinum Toxin in Facial Aesthetics",
+              "storagePath": "Face/Botulinum Toxin in Facial Aesthetics.pdf",
+              "resourceOrder": 65,
+              "imageEntryCount": 9,
+              "imageEntryIds": [
+                "face-botulinum-toxin-in-facial-aesthetics-figure-1",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-2",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-3",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-4",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-5",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-6",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-7",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-8",
+                "face-botulinum-toxin-in-facial-aesthetics-figure-9"
+              ]
+            },
+            {
+              "id": "chemical-peels",
+              "title": "Chemical Peels",
+              "storagePath": "Face/Chemical Peels.pdf",
+              "resourceOrder": 66,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "soft-tissue-fillers",
+              "title": "Soft-Tissue Fillers",
+              "storagePath": "Face/Soft-Tissue Fillers.pdf",
+              "resourceOrder": 67,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "face-soft-tissue-fillers-figure-1",
+                "face-soft-tissue-fillers-figure-2",
+                "face-soft-tissue-fillers-figure-3",
+                "face-soft-tissue-fillers-figure-4"
+              ]
+            },
+            {
+              "id": "lasers-and-energy-based-treatments-for-cosmetic-improvement-and-skin-rejuvenation",
+              "title": "Lasers and Energy-Based Treatments for Cosmetic Improvement and Skin Rejuvenation",
+              "storagePath": "Face/Lasers and Energy-Based Treatments for Cosmetic Improvement and Skin Rejuvenation.pdf",
+              "resourceOrder": 68,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "face-neuro-ophthalmic-disease",
+          "domainTitle": "Face",
+          "sectionTitle": "Neuro-Ophthalmic Disease",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Neuro-Ophthalmic Disease",
+          "order": 69,
+          "resourceCount": 8,
+          "imageEntryCount": 15,
+          "zeroImageResourceCount": 4,
+          "resources": [
+            {
+              "id": "benign-essential-blepharospasm",
+              "title": "Benign Essential Blepharospasm",
+              "storagePath": "Face/Benign Essential Blepharospasm.pdf",
+              "resourceOrder": 69,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "facial-nerve-palsy",
+              "title": "Facial Nerve Palsy",
+              "storagePath": "Face/Facial Nerve Palsy.pdf",
+              "resourceOrder": 70,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "face-facial-nerve-palsy-figure-1"
+              ]
+            },
+            {
+              "id": "giant-cell-arteritis-and-temporal-artery-biopsy",
+              "title": "Giant Cell Arteritis and Temporal Artery Biopsy",
+              "storagePath": "Face/Giant Cell Arteritis and Temporal Artery Biopsy.pdf",
+              "resourceOrder": 71,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "face-giant-cell-arteritis-and-temporal-artery-biopsy-figure-1",
+                "face-giant-cell-arteritis-and-temporal-artery-biopsy-figure-2"
+              ]
+            },
+            {
+              "id": "hemifacial-spasm",
+              "title": "Hemifacial Spasm",
+              "storagePath": "Face/Hemifacial Spasm.pdf",
+              "resourceOrder": 72,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "horner-syndrome",
+              "title": "Horner Syndrome",
+              "storagePath": "Face/Horner Syndrome.pdf",
+              "resourceOrder": 73,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "face-horner-syndrome-figure-1",
+                "face-horner-syndrome-figure-2",
+                "face-horner-syndrome-figure-3",
+                "face-horner-syndrome-figure-4"
+              ]
+            },
+            {
+              "id": "idiopathic-intracranial-hypertension",
+              "title": "Idiopathic Intracranial Hypertension",
+              "storagePath": "Face/Idiopathic Intracranial Hypertension.pdf",
+              "resourceOrder": 74,
+              "imageEntryCount": 8,
+              "imageEntryIds": [
+                "face-idiopathic-intracranial-hypertension-figure-1",
+                "face-idiopathic-intracranial-hypertension-figure-2",
+                "face-idiopathic-intracranial-hypertension-figure-3",
+                "face-idiopathic-intracranial-hypertension-figure-4",
+                "face-idiopathic-intracranial-hypertension-figure-5",
+                "face-idiopathic-intracranial-hypertension-figure-6",
+                "face-idiopathic-intracranial-hypertension-figure-7",
+                "face-idiopathic-intracranial-hypertension-figure-8"
+              ]
+            },
+            {
+              "id": "melkersson-rosenthal-syndrome",
+              "title": "Melkersson-Rosenthal Syndrome",
+              "storagePath": "Face/Melkersson-Rosenthal Syndrome.pdf",
+              "resourceOrder": 75,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "myasthenia-gravis",
+              "title": "Myasthenia Gravis",
+              "storagePath": "Face/Myasthenia Gravis.pdf",
+              "resourceOrder": 76,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lacrimal",
+      "title": "Lacrimal",
+      "order": 3,
+      "groups": [
+        {
+          "id": "lacrimal-canalicular-disorders",
+          "domainTitle": "Lacrimal",
+          "sectionTitle": "Canalicular Disorders",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Canalicular Disorders",
+          "order": 77,
+          "resourceCount": 4,
+          "imageEntryCount": 4,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "cdcr-with-jones-tube",
+              "title": "CDCR with Jones Tube",
+              "storagePath": "Lacrimal/CDCR with Jones Tube.pdf",
+              "resourceOrder": 77,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "congenital-lacrimal-dysgenesis",
+              "title": "Congenital Lacrimal Dysgenesis",
+              "storagePath": "Lacrimal/Congenital Lacrimal Dysgenesis.pdf",
+              "resourceOrder": 78,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "lacrimal-congenital-lacrimal-dysgenesis-figure-1"
+              ]
+            },
+            {
+              "id": "canalicular-infections-and-inflammation",
+              "title": "Canalicular Infections and Inflammation",
+              "storagePath": "Lacrimal/Canalicular Infections and Inflammation.pdf",
+              "resourceOrder": 79,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "lacrimal-canalicular-infections-and-inflammation-figure-1",
+                "lacrimal-canalicular-infections-and-inflammation-figure-2",
+                "lacrimal-canalicular-infections-and-inflammation-figure-3"
+              ]
+            },
+            {
+              "id": "canalicular-obstruction",
+              "title": "Canalicular Obstruction",
+              "storagePath": "Lacrimal/Canalicular Obstruction.pdf",
+              "resourceOrder": 80,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "lacrimal-nasolacrimal-obstruction",
+          "domainTitle": "Lacrimal",
+          "sectionTitle": "Nasolacrimal Obstruction",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Nasolacrimal Obstruction",
+          "order": 81,
+          "resourceCount": 9,
+          "imageEntryCount": 29,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "acquired-nasolacrimal-duct-obstruction",
+              "title": "Acquired Nasolacrimal Duct Obstruction",
+              "storagePath": "Lacrimal/Acquired Nasolacrimal Duct Obstruction.pdf",
+              "resourceOrder": 81,
+              "imageEntryCount": 6,
+              "imageEntryIds": [
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-1",
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-2",
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-3",
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-4",
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-5",
+                "lacrimal-acquired-nasolacrimal-duct-obstruction-figure-6"
+              ]
+            },
+            {
+              "id": "congenital-nasolacrimal-duct-obstruction-nldo",
+              "title": "Congenital Nasolacrimal Duct Obstruction (NLDO)",
+              "storagePath": "Lacrimal/Congenital Nasolacrimal Duct Obstruction (NLDO).pdf",
+              "resourceOrder": 82,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "lacrimal-congenital-nasolacrimal-duct-obstruction-nldo-figure-1",
+                "lacrimal-congenital-nasolacrimal-duct-obstruction-nldo-figure-2",
+                "lacrimal-congenital-nasolacrimal-duct-obstruction-nldo-figure-3",
+                "lacrimal-congenital-nasolacrimal-duct-obstruction-nldo-figure-4",
+                "lacrimal-congenital-nasolacrimal-duct-obstruction-nldo-figure-5"
+              ]
+            },
+            {
+              "id": "dacryocystocele-amniotocele",
+              "title": "Dacryocystocele (amniotocele)",
+              "storagePath": "Lacrimal/Dacryocystocele (amniotocele).pdf",
+              "resourceOrder": 83,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "lacrimal-dacryocystocele-amniotocele-figure-1"
+              ]
+            },
+            {
+              "id": "dacryocystectomy",
+              "title": "Dacryocystectomy",
+              "storagePath": "Lacrimal/Dacryocystectomy.pdf",
+              "resourceOrder": 84,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "lacrimal-dacryocystectomy-figure-1",
+                "lacrimal-dacryocystectomy-figure-2",
+                "lacrimal-dacryocystectomy-figure-3",
+                "lacrimal-dacryocystectomy-figure-4",
+                "lacrimal-dacryocystectomy-figure-5"
+              ]
+            },
+            {
+              "id": "ectrodactyly-ectodermal-dysplasia-cleft-syndrome-eec-syndrome",
+              "title": "Ectrodactyly-ectodermal dysplasia-cleft syndrome (EEC Syndrome)",
+              "storagePath": "Lacrimal/Ectrodactyly-ectodermal dysplasia-cleft syndrome (EEC Syndrome).pdf",
+              "resourceOrder": 85,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "endoscopic-endonasal-or-transnasal-dacryocystorhinostomy-endodcr",
+              "title": "Endoscopic, Endonasal, or Transnasal Dacryocystorhinostomy (EndoDCR)",
+              "storagePath": "Lacrimal/Endoscopic, Endonasal, or Transnasal Dacryocystorhinostomy (EndoDCR).pdf",
+              "resourceOrder": 86,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "lacrimal-endoscopic-endonasal-or-transnasal-dacryocystorhinostomy-endodcr-figure-1",
+                "lacrimal-endoscopic-endonasal-or-transnasal-dacryocystorhinostomy-endodcr-figure-2",
+                "lacrimal-endoscopic-endonasal-or-transnasal-dacryocystorhinostomy-endodcr-figure-3",
+                "lacrimal-endoscopic-endonasal-or-transnasal-dacryocystorhinostomy-endodcr-figure-4"
+              ]
+            },
+            {
+              "id": "diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora",
+              "title": "Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora",
+              "storagePath": "Lacrimal/Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora.pdf",
+              "resourceOrder": 87,
+              "imageEntryCount": 6,
+              "imageEntryIds": [
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-1",
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-2",
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-3",
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-4",
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-5",
+                "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-6"
+              ]
+            },
+            {
+              "id": "paranasal-sinus-anatomy-and-physiology",
+              "title": "Paranasal Sinus Anatomy and Physiology",
+              "storagePath": "Lacrimal/Paranasal Sinus Anatomy and Physiology.pdf",
+              "resourceOrder": 88,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "lacrimal-paranasal-sinus-anatomy-and-physiology-figure-1"
+              ]
+            },
+            {
+              "id": "silicone-intubation-of-nasolacrimal-drainage-system",
+              "title": "Silicone Intubation of Nasolacrimal Drainage System",
+              "storagePath": "Lacrimal/Silicone Intubation of Nasolacrimal Drainage System.pdf",
+              "resourceOrder": 89,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "lacrimal-silicone-intubation-of-nasolacrimal-drainage-system-figure-1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "orbit",
+      "title": "Orbit",
+      "order": 4,
+      "groups": [
+        {
+          "id": "orbit-root",
+          "domainTitle": "Orbit",
+          "sectionTitle": null,
+          "isAuthoritativeSection": false,
+          "displayTitle": "General / standalone resources",
+          "order": 90,
+          "resourceCount": 2,
+          "imageEntryCount": 16,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "history-and-examination-for-orbital-pathology",
+              "title": "History and Examination for Orbital Pathology",
+              "storagePath": "Orbit/History and Examination for Orbital Pathology.pdf",
+              "resourceOrder": 90,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "corneal-neurotization",
+              "title": "Corneal Neurotization",
+              "storagePath": "Orbit/Corneal Neurotization.pdf",
+              "resourceOrder": 91,
+              "imageEntryCount": 16,
+              "imageEntryIds": [
+                "orbit-corneal-neurotization-figure-1",
+                "orbit-corneal-neurotization-figure-2",
+                "orbit-corneal-neurotization-figure-3a",
+                "orbit-corneal-neurotization-figure-3b",
+                "orbit-corneal-neurotization-figure-3c",
+                "orbit-corneal-neurotization-figure-4a",
+                "orbit-corneal-neurotization-figure-4b",
+                "orbit-corneal-neurotization-figure-4c",
+                "orbit-corneal-neurotization-figure-4d",
+                "orbit-corneal-neurotization-figure-5",
+                "orbit-corneal-neurotization-figure-6",
+                "orbit-corneal-neurotization-figure-3",
+                "orbit-corneal-neurotization-figure-4",
+                "orbit-corneal-neurotization-figure-7",
+                "orbit-corneal-neurotization-figure-8a",
+                "orbit-corneal-neurotization-figure-8b"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-enucleation",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Enucleation",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Enucleation",
+          "order": 92,
+          "resourceCount": 2,
+          "imageEntryCount": 4,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "the-challenging-anophthalmic-socket",
+              "title": "The Challenging Anophthalmic Socket",
+              "storagePath": "Orbit/The Challenging Anophthalmic Socket.pdf",
+              "resourceOrder": 92,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "enucleation-and-evisceration",
+              "title": "Enucleation and Evisceration",
+              "storagePath": "Orbit/Enucleation and Evisceration.pdf",
+              "resourceOrder": 93,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-enucleation-and-evisceration-figure-1",
+                "orbit-enucleation-and-evisceration-figure-2",
+                "orbit-enucleation-and-evisceration-figure-3",
+                "orbit-enucleation-and-evisceration-figure-4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-inflammation",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Inflammation",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Inflammation",
+          "order": 94,
+          "resourceCount": 6,
+          "imageEntryCount": 24,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "eosinophilic-orbital-disease",
+              "title": "Eosinophilic orbital disease",
+              "storagePath": "Orbit/Eosinophilic orbital disease.pdf",
+              "resourceOrder": 94,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-eosinophilic-orbital-disease-figure-1",
+                "orbit-eosinophilic-orbital-disease-figure-2"
+              ]
+            },
+            {
+              "id": "granulomatosis-with-polyangiitis-wegener-s-granulomatosis",
+              "title": "Granulomatosis with Polyangiitis (Wegener’s Granulomatosis)",
+              "storagePath": "Orbit/Granulomatosis with Polyangiitis (Wegener’s Granulomatosis).pdf",
+              "resourceOrder": 95,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "idiopathic-orbital-inflammation",
+              "title": "Idiopathic Orbital Inflammation",
+              "storagePath": "Orbit/Idiopathic Orbital Inflammation.pdf",
+              "resourceOrder": 96,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-idiopathic-orbital-inflammation-figure-1",
+                "orbit-idiopathic-orbital-inflammation-figure-2",
+                "orbit-idiopathic-orbital-inflammation-figure-3",
+                "orbit-idiopathic-orbital-inflammation-figure-4"
+              ]
+            },
+            {
+              "id": "igg4-related-disease",
+              "title": "IgG4-Related Disease",
+              "storagePath": "Orbit/IgG4-Related Disease.pdf",
+              "resourceOrder": 97,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "orbit-igg4-related-disease-figure-1",
+                "orbit-igg4-related-disease-figure-2",
+                "orbit-igg4-related-disease-figure-3",
+                "orbit-igg4-related-disease-figure-4",
+                "orbit-igg4-related-disease-figure-5",
+                "orbit-igg4-related-disease-figure-6",
+                "orbit-igg4-related-disease-figure-7"
+              ]
+            },
+            {
+              "id": "orbital-and-ocular-adnexal-sarcoidosis",
+              "title": "Orbital and Ocular Adnexal Sarcoidosis",
+              "storagePath": "Orbit/Orbital and Ocular Adnexal Sarcoidosis.pdf",
+              "resourceOrder": 98,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "adult-orbital-xanthogranulomatous-disease",
+              "title": "Adult Orbital Xanthogranulomatous Disease",
+              "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
+              "resourceOrder": 99,
+              "imageEntryCount": 11,
+              "imageEntryIds": [
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-1",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-2",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-3",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-4",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-5",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-6",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-7",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-8",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-9",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-10",
+                "orbit-adult-orbital-xanthogranulomatous-disease-figure-11"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-lacrimal-gland-lesions-and-tumors",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Lacrimal Gland Lesions and Tumors",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Lacrimal Gland Lesions and Tumors",
+          "order": 100,
+          "resourceCount": 4,
+          "imageEntryCount": 7,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "adenoid-cystic-carcinoma-of-the-lacrimal-gland",
+              "title": "Adenoid Cystic Carcinoma of the Lacrimal Gland",
+              "storagePath": "Orbit/Adenoid Cystic Carcinoma of the Lacrimal Gland.pdf",
+              "resourceOrder": 100,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-adenoid-cystic-carcinoma-of-the-lacrimal-gland-figure-1",
+                "orbit-adenoid-cystic-carcinoma-of-the-lacrimal-gland-figure-2",
+                "orbit-adenoid-cystic-carcinoma-of-the-lacrimal-gland-figure-3",
+                "orbit-adenoid-cystic-carcinoma-of-the-lacrimal-gland-figure-4"
+              ]
+            },
+            {
+              "id": "dacryops",
+              "title": "Dacryops",
+              "storagePath": "Orbit/Dacryops.pdf",
+              "resourceOrder": 101,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "malignant-mixed-tumor-of-the-lacrimal-gland",
+              "title": "Malignant Mixed Tumor of the Lacrimal Gland",
+              "storagePath": "Orbit/Malignant Mixed Tumor of the Lacrimal Gland.pdf",
+              "resourceOrder": 102,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "pleomorphic-adenoma",
+              "title": "Pleomorphic adenoma",
+              "storagePath": "Orbit/Pleomorphic adenoma.pdf",
+              "resourceOrder": 103,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-pleomorphic-adenoma-figure-1",
+                "orbit-pleomorphic-adenoma-figure-2",
+                "orbit-pleomorphic-adenoma-figure-3"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-neurogenic-tumors",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Neurogenic Tumors",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Neurogenic Tumors",
+          "order": 104,
+          "resourceCount": 3,
+          "imageEntryCount": 5,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "optic-nerve-sheath-meningioma",
+              "title": "Optic Nerve Sheath Meningioma",
+              "storagePath": "Orbit/Optic Nerve Sheath Meningioma.pdf",
+              "resourceOrder": 104,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "schwannoma-neurilemoma",
+              "title": "Schwannoma (Neurilemoma)",
+              "storagePath": "Orbit/Schwannoma (Neurilemoma).pdf",
+              "resourceOrder": 105,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-schwannoma-neurilemoma-figure-1",
+                "orbit-schwannoma-neurilemoma-figure-2"
+              ]
+            },
+            {
+              "id": "spheno-orbital-meningioma-sphenoid-wing-meningioma",
+              "title": "Spheno-Orbital Meningioma (Sphenoid Wing Meningioma)",
+              "storagePath": "Orbit/Spheno-Orbital Meningioma (Sphenoid Wing Meningioma).pdf",
+              "resourceOrder": 106,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-spheno-orbital-meningioma-sphenoid-wing-meningioma-figure-1",
+                "orbit-spheno-orbital-meningioma-sphenoid-wing-meningioma-figure-2",
+                "orbit-spheno-orbital-meningioma-sphenoid-wing-meningioma-figure-3"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-orbitofacial-developmental-anomalies",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Orbitofacial Developmental Anomalies",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Orbitofacial Developmental Anomalies",
+          "order": 107,
+          "resourceCount": 6,
+          "imageEntryCount": 10,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "anophthalmos-microphthalmos-and-congenital-socket-malformations",
+              "title": "Anophthalmos, Microphthalmos, and Congenital Socket Malformations",
+              "storagePath": "Orbit/Anophthalmos, Microphthalmos, and Congenital Socket Malformations.pdf",
+              "resourceOrder": 107,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "craniosynostosis-syndromes",
+              "title": "Craniosynostosis Syndromes",
+              "storagePath": "Orbit/Craniosynostosis Syndromes.pdf",
+              "resourceOrder": 108,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "orbit-craniosynostosis-syndromes-figure-1"
+              ]
+            },
+            {
+              "id": "dermoid-cysts",
+              "title": "Dermoid Cysts",
+              "storagePath": "Orbit/Dermoid Cysts.pdf",
+              "resourceOrder": 109,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-dermoid-cysts-figure-1",
+                "orbit-dermoid-cysts-figure-2"
+              ]
+            },
+            {
+              "id": "dermolipoma",
+              "title": "Dermolipoma",
+              "storagePath": "Orbit/Dermolipoma.pdf",
+              "resourceOrder": 110,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-dermolipoma-figure-1",
+                "orbit-dermolipoma-figure-2",
+                "orbit-dermolipoma-figure-3",
+                "orbit-dermolipoma-figure-4"
+              ]
+            },
+            {
+              "id": "genetics-for-the-oculofacial-and-orbital-surgeon",
+              "title": "Genetics for the Oculofacial and Orbital Surgeon",
+              "storagePath": "Orbit/Genetics for the Oculofacial and Orbital Surgeon.pdf",
+              "resourceOrder": 111,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "orbital-meningocele-encephalocele-and-meningoencephalocele",
+              "title": "Orbital Meningocele, Encephalocele, and Meningoencephalocele",
+              "storagePath": "Orbit/Orbital Meningocele, Encephalocele, and Meningoencephalocele.pdf",
+              "resourceOrder": 112,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-orbital-meningocele-encephalocele-and-meningoencephalocele-figure-1",
+                "orbit-orbital-meningocele-encephalocele-and-meningoencephalocele-figure-2",
+                "orbit-orbital-meningocele-encephalocele-and-meningoencephalocele-figure-3"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-orbitofacial-trauma",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Orbitofacial Trauma",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Orbitofacial Trauma",
+          "order": 113,
+          "resourceCount": 12,
+          "imageEntryCount": 57,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "intraorbital-foreign-bodies",
+              "title": "Intraorbital Foreign Bodies",
+              "storagePath": "Orbit/Intraorbital Foreign Bodies.pdf",
+              "resourceOrder": 113,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-intraorbital-foreign-bodies-figure-1",
+                "orbit-intraorbital-foreign-bodies-figure-2"
+              ]
+            },
+            {
+              "id": "late-post-traumatic-enophthalmos",
+              "title": "Late Post-Traumatic Enophthalmos",
+              "storagePath": "Orbit/Late Post-Traumatic Enophthalmos.pdf",
+              "resourceOrder": 114,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "le-fort-fractures",
+              "title": "Le Fort Fractures",
+              "storagePath": "Orbit/Le Fort Fractures.pdf",
+              "resourceOrder": 115,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "orbit-le-fort-fractures-figure-1",
+                "orbit-le-fort-fractures-figure-2",
+                "orbit-le-fort-fractures-figure-3",
+                "orbit-le-fort-fractures-figure-4",
+                "orbit-le-fort-fractures-figure-5",
+                "orbit-le-fort-fractures-figure-6",
+                "orbit-le-fort-fractures-figure-7"
+              ]
+            },
+            {
+              "id": "mandible-fractures",
+              "title": "Mandible Fractures",
+              "storagePath": "Orbit/Mandible Fractures.pdf",
+              "resourceOrder": 116,
+              "imageEntryCount": 17,
+              "imageEntryIds": [
+                "orbit-mandible-fractures-figure-1",
+                "orbit-mandible-fractures-figure-2",
+                "orbit-mandible-fractures-figure-3",
+                "orbit-mandible-fractures-figure-4",
+                "orbit-mandible-fractures-figure-5",
+                "orbit-mandible-fractures-figure-6",
+                "orbit-mandible-fractures-figure-7",
+                "orbit-mandible-fractures-figure-8",
+                "orbit-mandible-fractures-figure-9",
+                "orbit-mandible-fractures-figure-10",
+                "orbit-mandible-fractures-figure-11",
+                "orbit-mandible-fractures-figure-12",
+                "orbit-mandible-fractures-figure-13",
+                "orbit-mandible-fractures-figure-14",
+                "orbit-mandible-fractures-figure-15",
+                "orbit-mandible-fractures-figure-16",
+                "orbit-mandible-fractures-figure-17"
+              ]
+            },
+            {
+              "id": "medial-orbital-wall-fractures",
+              "title": "Medial Orbital Wall Fractures",
+              "storagePath": "Orbit/Medial Orbital Wall Fractures.pdf",
+              "resourceOrder": 117,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-medial-orbital-wall-fractures-figure-1",
+                "orbit-medial-orbital-wall-fractures-figure-2"
+              ]
+            },
+            {
+              "id": "newer-orbital-implants",
+              "title": "Newer Orbital Implants",
+              "storagePath": "Orbit/Newer Orbital Implants.pdf",
+              "resourceOrder": 118,
+              "imageEntryCount": 7,
+              "imageEntryIds": [
+                "orbit-newer-orbital-implants-figure-1",
+                "orbit-newer-orbital-implants-figure-2",
+                "orbit-newer-orbital-implants-figure-3",
+                "orbit-newer-orbital-implants-figure-4",
+                "orbit-newer-orbital-implants-figure-5",
+                "orbit-newer-orbital-implants-figure-6",
+                "orbit-newer-orbital-implants-figure-7"
+              ]
+            },
+            {
+              "id": "naso-orbital-ethmoid-fractures",
+              "title": "Naso-Orbital Ethmoid Fractures",
+              "storagePath": "Orbit/Naso-Orbital Ethmoid Fractures.pdf",
+              "resourceOrder": 119,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-naso-orbital-ethmoid-fractures-figure-1",
+                "orbit-naso-orbital-ethmoid-fractures-figure-2"
+              ]
+            },
+            {
+              "id": "orbital-floor-fractures",
+              "title": "Orbital Floor Fractures",
+              "storagePath": "Orbit/Orbital Floor Fractures.pdf",
+              "resourceOrder": 120,
+              "imageEntryCount": 11,
+              "imageEntryIds": [
+                "orbit-orbital-floor-fractures-figure-1",
+                "orbit-orbital-floor-fractures-figure-2",
+                "orbit-orbital-floor-fractures-figure-3",
+                "orbit-orbital-floor-fractures-figure-3a",
+                "orbit-orbital-floor-fractures-figure-3b",
+                "orbit-orbital-floor-fractures-figure-4",
+                "orbit-orbital-floor-fractures-figure-5",
+                "orbit-orbital-floor-fractures-figure-6",
+                "orbit-orbital-floor-fractures-figure-7",
+                "orbit-orbital-floor-fractures-figure-8",
+                "orbit-orbital-floor-fractures-figure-9"
+              ]
+            },
+            {
+              "id": "orbital-hemorrhage",
+              "title": "Orbital Hemorrhage",
+              "storagePath": "Orbit/Orbital Hemorrhage.pdf",
+              "resourceOrder": 121,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-orbital-hemorrhage-figure-1",
+                "orbit-orbital-hemorrhage-figure-2"
+              ]
+            },
+            {
+              "id": "orbital-apex-and-roof-fractures",
+              "title": "Orbital Apex and Roof Fractures",
+              "storagePath": "Orbit/Orbital Apex and Roof Fractures.pdf",
+              "resourceOrder": 122,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-orbital-apex-and-roof-fractures-figure-1",
+                "orbit-orbital-apex-and-roof-fractures-figure-2",
+                "orbit-orbital-apex-and-roof-fractures-figure-3"
+              ]
+            },
+            {
+              "id": "sinus-mucocele",
+              "title": "Sinus Mucocele",
+              "storagePath": "Orbit/Sinus Mucocele.pdf",
+              "resourceOrder": 123,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-sinus-mucocele-figure-1",
+                "orbit-sinus-mucocele-figure-2"
+              ]
+            },
+            {
+              "id": "zygomatic-maxillary-complex-zmc-fractures",
+              "title": "Zygomatic maxillary complex (ZMC) fractures",
+              "storagePath": "Orbit/Zygomatic maxillary complex (ZMC) fractures.pdf",
+              "resourceOrder": 124,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-zygomatic-maxillary-complex-zmc-fractures-figure-3",
+                "orbit-zygomatic-maxillary-complex-zmc-fractures-figure-4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-other-tumors",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Other Tumors",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Other Tumors",
+          "order": 125,
+          "resourceCount": 3,
+          "imageEntryCount": 11,
+          "zeroImageResourceCount": 0,
+          "resources": [
+            {
+              "id": "fibrous-histiocytoma",
+              "title": "Fibrous Histiocytoma",
+              "storagePath": "Orbit/Fibrous Histiocytoma.pdf",
+              "resourceOrder": 125,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "orbit-fibrous-histiocytoma-figure-1"
+              ]
+            },
+            {
+              "id": "orbital-rhabdomyosarcoma",
+              "title": "Orbital Rhabdomyosarcoma",
+              "storagePath": "Orbit/Orbital Rhabdomyosarcoma.pdf",
+              "resourceOrder": 126,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "orbit-orbital-rhabdomyosarcoma-figure-1",
+                "orbit-orbital-rhabdomyosarcoma-figure-2",
+                "orbit-orbital-rhabdomyosarcoma-figure-3",
+                "orbit-orbital-rhabdomyosarcoma-figure-4",
+                "orbit-orbital-rhabdomyosarcoma-figure-5"
+              ]
+            },
+            {
+              "id": "uncommon-orbital-lesions-solitary-fibrous-tumors",
+              "title": "Uncommon Orbital Lesions- Solitary Fibrous Tumors",
+              "storagePath": "Orbit/Uncommon Orbital Lesions- Solitary Fibrous Tumors.pdf",
+              "resourceOrder": 127,
+              "imageEntryCount": 5,
+              "imageEntryIds": [
+                "orbit-uncommon-orbital-lesions-solitary-fibrous-tumors-figure-1",
+                "orbit-uncommon-orbital-lesions-solitary-fibrous-tumors-figure-2",
+                "orbit-uncommon-orbital-lesions-solitary-fibrous-tumors-figure-3",
+                "orbit-uncommon-orbital-lesions-solitary-fibrous-tumors-figure-4",
+                "orbit-uncommon-orbital-lesions-solitary-fibrous-tumors-figure-5"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-periorbital-and-orbital-infections",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Periorbital and Orbital Infections",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Periorbital and Orbital Infections",
+          "order": 128,
+          "resourceCount": 7,
+          "imageEntryCount": 8,
+          "zeroImageResourceCount": 4,
+          "resources": [
+            {
+              "id": "allergic-fungal-sinusitis",
+              "title": "Allergic Fungal Sinusitis",
+              "storagePath": "Orbit/Allergic Fungal Sinusitis.pdf",
+              "resourceOrder": 128,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "aspergillosis",
+              "title": "Aspergillosis",
+              "storagePath": "Orbit/Aspergillosis.pdf",
+              "resourceOrder": 129,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "phycomycosis-zygomycosis-mucormycosis",
+              "title": "Phycomycosis (Zygomycosis, Mucormycosis)",
+              "storagePath": "Orbit/Phycomycosis (Zygomycosis, Mucormycosis).pdf",
+              "resourceOrder": 130,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "bacterial-orbital-cellulitis",
+              "title": "Bacterial Orbital Cellulitis",
+              "storagePath": "Orbit/Bacterial Orbital Cellulitis.pdf",
+              "resourceOrder": 131,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-bacterial-orbital-cellulitis-figure-1",
+                "orbit-bacterial-orbital-cellulitis-figure-2"
+              ]
+            },
+            {
+              "id": "methicillin-resistant-staphylococcus-aureus-mrsa",
+              "title": "Methicillin-Resistant Staphylococcus Aureus (MRSA)",
+              "storagePath": "Orbit/Methicillin-Resistant Staphylococcus Aureus (MRSA).pdf",
+              "resourceOrder": 132,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-methicillin-resistant-staphylococcus-aureus-mrsa-figure-1",
+                "orbit-methicillin-resistant-staphylococcus-aureus-mrsa-figure-2",
+                "orbit-methicillin-resistant-staphylococcus-aureus-mrsa-figure-3",
+                "orbit-methicillin-resistant-staphylococcus-aureus-mrsa-figure-4"
+              ]
+            },
+            {
+              "id": "necrotizing-fasciitis",
+              "title": "Necrotizing Fasciitis",
+              "storagePath": "Orbit/Necrotizing Fasciitis.pdf",
+              "resourceOrder": 133,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-necrotizing-fasciitis-figure-1",
+                "orbit-necrotizing-fasciitis-figure-2"
+              ]
+            },
+            {
+              "id": "palpebral-orbital-ophthalmomyiasis",
+              "title": "Palpebral Orbital Ophthalmomyiasis",
+              "storagePath": "Orbit/Palpebral Orbital Ophthalmomyiasis.pdf",
+              "resourceOrder": 134,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "orbit-periorbital-repositioning",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Periorbital Repositioning",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Periorbital Repositioning",
+          "order": 135,
+          "resourceCount": 2,
+          "imageEntryCount": 3,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "the-enophthalmos-syndromes",
+              "title": "The Enophthalmos Syndromes",
+              "storagePath": "Orbit/The Enophthalmos Syndromes.pdf",
+              "resourceOrder": 135,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-the-enophthalmos-syndromes-figure-1",
+                "orbit-the-enophthalmos-syndromes-figure-2",
+                "orbit-the-enophthalmos-syndromes-figure-3"
+              ]
+            },
+            {
+              "id": "repair-of-traumatic-telecanthus",
+              "title": "Repair of Traumatic Telecanthus",
+              "storagePath": "Orbit/Repair of Traumatic Telecanthus.pdf",
+              "resourceOrder": 136,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "orbit-potentially-systemic-tumors",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Potentially Systemic Tumors",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Potentially Systemic Tumors",
+          "order": 137,
+          "resourceCount": 6,
+          "imageEntryCount": 14,
+          "zeroImageResourceCount": 3,
+          "resources": [
+            {
+              "id": "ocular-adnexal-follicular-lymphoma",
+              "title": "Ocular Adnexal Follicular Lymphoma",
+              "storagePath": "Orbit/Ocular Adnexal Follicular Lymphoma.pdf",
+              "resourceOrder": 137,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "ocular-adnexal-malt-lymphoma",
+              "title": "Ocular Adnexal MALT Lymphoma",
+              "storagePath": "Orbit/Ocular Adnexal MALT Lymphoma.pdf",
+              "resourceOrder": 138,
+              "imageEntryCount": 9,
+              "imageEntryIds": [
+                "orbit-ocular-adnexal-malt-lymphoma-figure-1",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-2",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-3",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-4",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-5",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-6",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-7",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-8",
+                "orbit-ocular-adnexal-malt-lymphoma-figure-9"
+              ]
+            },
+            {
+              "id": "mantle-cell-lymphoma",
+              "title": "Mantle Cell Lymphoma",
+              "storagePath": "Orbit/Mantle Cell Lymphoma.pdf",
+              "resourceOrder": 139,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "metastatic-tumors-of-the-orbit",
+              "title": "Metastatic Tumors of the Orbit",
+              "storagePath": "Orbit/Metastatic Tumors of the Orbit.pdf",
+              "resourceOrder": 140,
+              "imageEntryCount": 3,
+              "imageEntryIds": [
+                "orbit-metastatic-tumors-of-the-orbit-figure-1",
+                "orbit-metastatic-tumors-of-the-orbit-figure-2",
+                "orbit-metastatic-tumors-of-the-orbit-figure-3"
+              ]
+            },
+            {
+              "id": "plasma-cell-tumors-of-the-orbit-and-periocular-region",
+              "title": "Plasma Cell Tumors of the Orbit and Periocular Region",
+              "storagePath": "Orbit/Plasma Cell Tumors of the Orbit and Periocular Region.pdf",
+              "resourceOrder": 141,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-plasma-cell-tumors-of-the-orbit-and-periocular-region-figure-1",
+                "orbit-plasma-cell-tumors-of-the-orbit-and-periocular-region-figure-2"
+              ]
+            },
+            {
+              "id": "rosai-dorfman-disease",
+              "title": "Rosai-Dorfman Disease",
+              "storagePath": "Orbit/Rosai-Dorfman Disease.pdf",
+              "resourceOrder": 142,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "orbit-surgical-approaches",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Surgical Approaches",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Surgical Approaches",
+          "order": 143,
+          "resourceCount": 2,
+          "imageEntryCount": 6,
+          "zeroImageResourceCount": 1,
+          "resources": [
+            {
+              "id": "endoscopic-orbital-surgery",
+              "title": "Endoscopic orbital surgery",
+              "storagePath": "Orbit/Endoscopic orbital surgery.pdf",
+              "resourceOrder": 143,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "surgical-approaches-to-the-orbit",
+              "title": "Surgical Approaches to the Orbit",
+              "storagePath": "Orbit/Surgical Approaches to the Orbit.pdf",
+              "resourceOrder": 144,
+              "imageEntryCount": 6,
+              "imageEntryIds": [
+                "orbit-surgical-approaches-to-the-orbit-figure-1",
+                "orbit-surgical-approaches-to-the-orbit-figure-2",
+                "orbit-surgical-approaches-to-the-orbit-figure-3",
+                "orbit-surgical-approaches-to-the-orbit-figure-4",
+                "orbit-surgical-approaches-to-the-orbit-figure-5",
+                "orbit-surgical-approaches-to-the-orbit-figure-6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orbit-thyroid-eye-disease",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Thyroid Eye Disease",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Thyroid Eye Disease",
+          "order": 145,
+          "resourceCount": 3,
+          "imageEntryCount": 1,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "nonsurgical-management-of-thyroid-eye-disease",
+              "title": "Nonsurgical Management of Thyroid Eye Disease",
+              "storagePath": "Orbit/Nonsurgical Management of Thyroid Eye Disease.pdf",
+              "resourceOrder": 145,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "orbit-nonsurgical-management-of-thyroid-eye-disease-figure-1"
+              ]
+            },
+            {
+              "id": "orbital-decompression-in-thyroid-eye-disease",
+              "title": "Orbital Decompression in Thyroid Eye Disease",
+              "storagePath": "Orbit/Orbital Decompression in Thyroid Eye Disease.pdf",
+              "resourceOrder": 146,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "pathogenesis-of-thyroid-eye-disease",
+              "title": "Pathogenesis of Thyroid Eye Disease",
+              "storagePath": "Orbit/Pathogenesis of Thyroid Eye Disease.pdf",
+              "resourceOrder": 147,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        },
+        {
+          "id": "orbit-vascular-malformations",
+          "domainTitle": "Orbit",
+          "sectionTitle": "Vascular Malformations",
+          "isAuthoritativeSection": true,
+          "displayTitle": "Vascular Malformations",
+          "order": 148,
+          "resourceCount": 5,
+          "imageEntryCount": 7,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "cavernous-malformation",
+              "title": "Cavernous Malformation",
+              "storagePath": "Orbit/Cavernous Malformation.pdf",
+              "resourceOrder": 148,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "carotid-cavernous-sinus-fistula",
+              "title": "Carotid Cavernous Sinus Fistula",
+              "storagePath": "Orbit/Carotid Cavernous Sinus Fistula.pdf",
+              "resourceOrder": 149,
+              "imageEntryCount": 1,
+              "imageEntryIds": [
+                "orbit-carotid-cavernous-sinus-fistula-figure-1"
+              ]
+            },
+            {
+              "id": "infantile-hemangioma",
+              "title": "Infantile Hemangioma",
+              "storagePath": "Orbit/Infantile Hemangioma.pdf",
+              "resourceOrder": 150,
+              "imageEntryCount": 4,
+              "imageEntryIds": [
+                "orbit-infantile-hemangioma-figure-1",
+                "orbit-infantile-hemangioma-figure-2",
+                "orbit-infantile-hemangioma-figure-3",
+                "orbit-infantile-hemangioma-figure-4"
+              ]
+            },
+            {
+              "id": "lymphangioma",
+              "title": "Lymphangioma",
+              "storagePath": "Orbit/Lymphangioma.pdf",
+              "resourceOrder": 151,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "orbital-varix",
+              "title": "Orbital varix",
+              "storagePath": "Orbit/Orbital varix.pdf",
+              "resourceOrder": 152,
+              "imageEntryCount": 2,
+              "imageEntryIds": [
+                "orbit-orbital-varix-figure-1",
+                "orbit-orbital-varix-figure-2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "title": "Other",
+      "order": 5,
+      "groups": [
+        {
+          "id": "other-root",
+          "domainTitle": "Other",
+          "sectionTitle": null,
+          "isAuthoritativeSection": false,
+          "displayTitle": "General / standalone resources",
+          "order": 153,
+          "resourceCount": 2,
+          "imageEntryCount": 0,
+          "zeroImageResourceCount": 2,
+          "resources": [
+            {
+              "id": "artificial-intelligence-in-ophthalmic-plastic-and-reconstructive-surgery",
+              "title": "Artificial Intelligence in Ophthalmic Plastic and Reconstructive Surgery",
+              "storagePath": "Other/Artificial Intelligence in Ophthalmic Plastic and Reconstructive Surgery.pdf",
+              "resourceOrder": 153,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            },
+            {
+              "id": "environmental-sustainability-in-ophthalmic-plastic-and-reconstructive-surgery",
+              "title": "Environmental Sustainability in Ophthalmic Plastic and Reconstructive Surgery",
+              "storagePath": "Other/Environmental Sustainability in Ophthalmic Plastic and Reconstructive Surgery.pdf",
+              "resourceOrder": 154,
+              "imageEntryCount": 0,
+              "imageEntryIds": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

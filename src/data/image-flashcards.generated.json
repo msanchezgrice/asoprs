@@ -356,29 +356,6 @@
     ]
   },
   {
-    "id": "eyelid-eyebrow-eyelid-retraction-figure-1",
-    "documentTitle": "Eyelid Retraction",
-    "documentSlug": "eyelid-retraction",
-    "category": "Eyelid-Eyebrow",
-    "storagePath": "Eyelid-Eyebrow/Eyelid Retraction.pdf",
-    "figureLabel": "Figure 1",
-    "pageNumber": 2,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.08,
-      "right": 0.94,
-      "bottom": 0.72
-    },
-    "caption": "Figure 1",
-    "references": [
-      "Other conjunctival diseases ( Figure 1 ) (Seminars in Ophthalmology 2011; 6(4-5): 270-277)",
-      "History of conjunctival inflammation ( Figure 1 )",
-      "drops associated with cicatrizing conjunctivitis ( Figure 1 )"
-    ]
-  },
-  {
     "id": "eyelid-eyebrow-eyelid-retraction-figure-2",
     "documentTitle": "Eyelid Retraction",
     "documentSlug": "eyelid-retraction",
@@ -1021,11 +998,11 @@
     "pageHeight": 792,
     "crop": {
       "left": 0.06,
-      "top": 0.02,
-      "right": 0.94,
-      "bottom": 0.13482323232323232
+      "top": 0.41,
+      "right": 0.64,
+      "bottom": 0.66
     },
-    "caption": "Figure 2 illustrates the difference in eyelid measurements without versus with the jaw fixated",
+    "caption": "Figure 2. Difference in eyelid height measurement without and with the jaw properly fixated.",
     "references": []
   },
   {
@@ -2077,6 +2054,25 @@
       "bottom": 0.273989898989899
     },
     "caption": "Figure 2 – before and after upper blepharoplasty in a Caucasian using lid crease fixation (courtesy of",
+    "references": []
+  },
+  {
+    "id": "face-anatomy-of-the-external-ear-figures-1-and-2",
+    "documentTitle": "Anatomy of the External Ear",
+    "documentSlug": "anatomy-of-the-external-ear",
+    "category": "Face",
+    "storagePath": "Face/Anatomy of the External Ear.pdf",
+    "figureLabel": "Figures 1 and 2",
+    "pageNumber": 1,
+    "pageWidth": 612,
+    "pageHeight": 792,
+    "crop": {
+      "left": 0.08,
+      "top": 0.23,
+      "right": 0.62,
+      "bottom": 0.66
+    },
+    "caption": "Figures 1 and 2. Anatomy of the external ear. External ear superficial landmarks, medially and laterally.",
     "references": []
   },
   {
@@ -3704,27 +3700,6 @@
     ]
   },
   {
-    "id": "lacrimal-dacryocystocele-amniotocele-figure-1",
-    "documentTitle": "Dacryocystocele (amniotocele)",
-    "documentSlug": "dacryocystocele-amniotocele",
-    "category": "Lacrimal",
-    "storagePath": "Lacrimal/Dacryocystocele (amniotocele).pdf",
-    "figureLabel": "Figure 1",
-    "pageNumber": 1,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.08,
-      "right": 0.94,
-      "bottom": 0.72
-    },
-    "caption": "Figure 1",
-    "references": [
-      "Lacrimal sac is distended, often bluish in color (See Figure 1)"
-    ]
-  },
-  {
     "id": "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-1",
     "documentTitle": "Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora",
     "documentSlug": "diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora",
@@ -3806,27 +3781,6 @@
     "caption": "Figure 4. Interpretation of lacrimal irrigation results. Illustration by Cyndie C. H. Wooley.",
     "references": [
       "Interpretation (Figure 4)"
-    ]
-  },
-  {
-    "id": "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-5",
-    "documentTitle": "Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora",
-    "documentSlug": "diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora",
-    "category": "Lacrimal",
-    "storagePath": "Lacrimal/Diagnostic Techniques to Evaluate Obstructive or Reflexive Epiphora.pdf",
-    "figureLabel": "Figure 5",
-    "pageNumber": 11,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.08,
-      "right": 0.94,
-      "bottom": 0.72
-    },
-    "caption": "Figure 5",
-    "references": [
-      "( Figure 5 )"
     ]
   },
   {
@@ -4126,139 +4080,6 @@
       "bottom": 0.98
     },
     "caption": "Figure 4. Histopathology of the left orbital mass showed xanthogranulomatous disease with epithelioid",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-5",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 5",
-    "pageNumber": 9,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.29166666666666663,
-      "right": 0.94,
-      "bottom": 0.6679292929292929
-    },
-    "caption": "Figure 5. A 53-year-old Caucasian woman was referred for evaluation of bilateral proptosis and ocular",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-6",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 6",
-    "pageNumber": 10,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.030303030303030276,
-      "right": 0.94,
-      "bottom": 0.422979797979798
-    },
-    "caption": "Figure 6. Her ocular exam showed decreased visual acuity of 20/250 (Snellen) on the right (in the setting",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-7",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 7",
-    "pageNumber": 10,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.5126262626262627,
-      "right": 0.94,
-      "bottom": 0.7159090909090908
-    },
-    "caption": "Figure 7. Diagnostic testing revealed Goldmann visual field testing with general depression with a small",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-8",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 8",
-    "pageNumber": 11,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.030303030303030276,
-      "right": 0.94,
-      "bottom": 0.476010101010101
-    },
-    "caption": "Figure 8. Orbital echography demonstrated globe deformation on the right (OD). Extraocular rectus",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-9",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 9",
-    "pageNumber": 11,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.5454545454545454,
-      "right": 0.94,
-      "bottom": 0.8926767676767677
-    },
-    "caption": "Figure 9. MRI of the brain and orbits showed bilateral contrast-enhancing retrobulbar soft tissue",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-10",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 10",
-    "pageNumber": 12,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.08234848484848487,
-      "right": 0.94,
-      "bottom": 0.26234848484848483
-    },
-    "caption": "Figure 10. Histopathology of the right orbital mass showed lacrimal gland with mild chronic inflammation",
-    "references": []
-  },
-  {
-    "id": "orbit-adult-orbital-xanthogranulomatous-disease-figure-11",
-    "documentTitle": "Adult Orbital Xanthogranulomatous Disease",
-    "documentSlug": "adult-orbital-xanthogranulomatous-disease",
-    "category": "Orbit",
-    "storagePath": "Orbit/Adult Orbital Xanthogranulomatous Disease.pdf",
-    "figureLabel": "Figure 11",
-    "pageNumber": 12,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.24494949494949492,
-      "right": 0.94,
-      "bottom": 0.5606060606060606
-    },
-    "caption": "Figure 11. Clinical photos taken over the patient’s disease course show A) initial presentation with bilateral",
     "references": []
   },
   {
@@ -5378,27 +5199,6 @@
     ]
   },
   {
-    "id": "orbit-mandible-fractures-figure-1",
-    "documentTitle": "Mandible Fractures",
-    "documentSlug": "mandible-fractures",
-    "category": "Orbit",
-    "storagePath": "Orbit/Mandible Fractures.pdf",
-    "figureLabel": "Figure 1",
-    "pageNumber": 4,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.02,
-      "right": 0.94,
-      "bottom": 0.13482323232323232
-    },
-    "caption": "Figure 1. (Image removed at request of copyright holder.) Anatomy of the mandible and fracture sites.",
-    "references": [
-      "Anatomy ( Figure 1 ):"
-    ]
-  },
-  {
     "id": "orbit-mandible-fractures-figure-2",
     "documentTitle": "Mandible Fractures",
     "documentSlug": "mandible-fractures",
@@ -5440,27 +5240,6 @@
     "references": [
       "Teeth ( Figure 3 ):",
       "Names ( Figure 3 ):"
-    ]
-  },
-  {
-    "id": "orbit-mandible-fractures-figure-4",
-    "documentTitle": "Mandible Fractures",
-    "documentSlug": "mandible-fractures",
-    "category": "Orbit",
-    "storagePath": "Orbit/Mandible Fractures.pdf",
-    "figureLabel": "Figure 4",
-    "pageNumber": 4,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.6341161616161617,
-      "right": 0.94,
-      "bottom": 0.8141161616161616
-    },
-    "caption": "Figure 4. Favorable versus unfavorable fractures. Upper left shows a mandibular fracture proximal to the",
-    "references": [
-      "due to masseter, medial pterygoid, and temporalis muscles. ( Figure 4 )"
     ]
   },
   {
@@ -5674,27 +5453,6 @@
     "caption": "Figure 14. Condylar fracture with dislocation.",
     "references": [
       "Condylar displacement into the middle cranial fossa or external auditory canal ( Figure 14 )"
-    ]
-  },
-  {
-    "id": "orbit-mandible-fractures-figure-15",
-    "documentTitle": "Mandible Fractures",
-    "documentSlug": "mandible-fractures",
-    "category": "Orbit",
-    "storagePath": "Orbit/Mandible Fractures.pdf",
-    "figureLabel": "Figure 15",
-    "pageNumber": 17,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.02,
-      "right": 0.94,
-      "bottom": 0.13482323232323232
-    },
-    "caption": "Figure 15. (Image removed at request of copyright holder.) Demonstrating an open fracture without a",
-    "references": [
-      "( Figure 15 ). Compression occurs on the lower border during functional loading and stabilizes this"
     ]
   },
   {
@@ -6470,27 +6228,6 @@
     ]
   },
   {
-    "id": "orbit-orbital-floor-fractures-figure-3",
-    "documentTitle": "Orbital Floor Fractures",
-    "documentSlug": "orbital-floor-fractures",
-    "category": "Orbit",
-    "storagePath": "Orbit/Orbital Floor Fractures.pdf",
-    "figureLabel": "Figure 3",
-    "pageNumber": 5,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.08,
-      "right": 0.94,
-      "bottom": 0.72
-    },
-    "caption": "Figure 3",
-    "references": [
-      "( Figure 3 )."
-    ]
-  },
-  {
     "id": "orbit-orbital-floor-fractures-figure-3a",
     "documentTitle": "Orbital Floor Fractures",
     "documentSlug": "orbital-floor-fractures",
@@ -7029,25 +6766,6 @@
     "references": [
       "and bony changes might be seen ( Figure 1 )."
     ]
-  },
-  {
-    "id": "orbit-schwannoma-neurilemoma-figure-2",
-    "documentTitle": "Schwannoma (Neurilemoma)",
-    "documentSlug": "schwannoma-neurilemoma",
-    "category": "Orbit",
-    "storagePath": "Orbit/Schwannoma (Neurilemoma).pdf",
-    "figureLabel": "Figure 2",
-    "pageNumber": 8,
-    "pageWidth": 612,
-    "pageHeight": 792,
-    "crop": {
-      "left": 0.06,
-      "top": 0.030303030303030276,
-      "right": 0.94,
-      "bottom": 0.46464646464646464
-    },
-    "caption": "Figure 2. Gross specimen of completely excised fibrous histiocytoma.",
-    "references": []
   },
   {
     "id": "orbit-sinus-mucocele-figure-1",
@@ -8100,6 +7818,82 @@
     "references": [
       "Bilateral heliotrope rash on upper lids or malar region ( Figure 2 )"
     ]
+  },
+  {
+    "id": "skin-conditions-eyelid-edema-figure-1",
+    "documentTitle": "Eyelid edema",
+    "documentSlug": "eyelid-edema",
+    "category": "Skin Conditions",
+    "storagePath": "Skin Conditions/Eyelid edema.pdf",
+    "figureLabel": "Figure 1",
+    "pageNumber": 3,
+    "pageWidth": 612,
+    "pageHeight": 792,
+    "crop": {
+      "left": 0.06,
+      "top": 0.58,
+      "right": 0.84,
+      "bottom": 0.91
+    },
+    "caption": "Figure 1. Yellowish discoloration of the skin in orbital xanthogranuloma.",
+    "references": []
+  },
+  {
+    "id": "skin-conditions-eyelid-edema-figure-2",
+    "documentTitle": "Eyelid edema",
+    "documentSlug": "eyelid-edema",
+    "category": "Skin Conditions",
+    "storagePath": "Skin Conditions/Eyelid edema.pdf",
+    "figureLabel": "Figure 2",
+    "pageNumber": 4,
+    "pageWidth": 612,
+    "pageHeight": 792,
+    "crop": {
+      "left": 0.06,
+      "top": 0.04,
+      "right": 0.84,
+      "bottom": 0.3
+    },
+    "caption": "Figure 2. Cigarette paper-like skin in blepharochalasis.",
+    "references": []
+  },
+  {
+    "id": "skin-conditions-eyelid-edema-figure-3",
+    "documentTitle": "Eyelid edema",
+    "documentSlug": "eyelid-edema",
+    "category": "Skin Conditions",
+    "storagePath": "Skin Conditions/Eyelid edema.pdf",
+    "figureLabel": "Figure 3",
+    "pageNumber": 4,
+    "pageWidth": 612,
+    "pageHeight": 792,
+    "crop": {
+      "left": 0.06,
+      "top": 0.3,
+      "right": 0.84,
+      "bottom": 0.57
+    },
+    "caption": "Figure 3. Eczema and lichenification in atopic dermatitis.",
+    "references": []
+  },
+  {
+    "id": "skin-conditions-eyelid-edema-figure-4",
+    "documentTitle": "Eyelid edema",
+    "documentSlug": "eyelid-edema",
+    "category": "Skin Conditions",
+    "storagePath": "Skin Conditions/Eyelid edema.pdf",
+    "figureLabel": "Figure 4",
+    "pageNumber": 5,
+    "pageWidth": 612,
+    "pageHeight": 792,
+    "crop": {
+      "left": 0.06,
+      "top": 0.26,
+      "right": 0.38,
+      "bottom": 0.54
+    },
+    "caption": "Figure 4. Melkersson-Rosenthal syndrome.",
+    "references": []
   },
   {
     "id": "skin-conditions-generalized-staphylococcal-scalded-skin-syndrome-figure-1",

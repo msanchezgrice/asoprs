@@ -1,13 +1,17 @@
 import { config } from "dotenv";
 import * as path from "path";
-config({ path: path.resolve(__dirname, "../.env.local") });
+import { fileURLToPath } from "node:url";
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(scriptDirectory, "../.env.local") });
 
 import * as fs from "fs";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
-const PDF_ROOT = path.resolve(__dirname, "../../ASOPRS_All_PDFs");
+const PDF_ROOT = process.env.ASOPRS_PDF_ROOT
+  ? path.resolve(process.env.ASOPRS_PDF_ROOT)
+  : path.resolve(scriptDirectory, "../../ASOPRS_All_PDFs");
 const OUTPUT_PATH = path.resolve(
-  __dirname,
+  scriptDirectory,
   "../src/data/image-flashcards.generated.json"
 );
 
@@ -53,6 +57,98 @@ type Card = {
   caption: string;
   references: string[];
 };
+
+const EXCLUDED_REFERENCE_ONLY_CARD_IDS = new Set([
+  "eyelid-eyebrow-eyelid-retraction-figure-1",
+  "lacrimal-dacryocystocele-amniotocele-figure-1",
+  "lacrimal-diagnostic-techniques-to-evaluate-obstructive-or-reflexive-epiphora-figure-5",
+  "orbit-orbital-floor-fractures-figure-3",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-5",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-6",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-7",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-8",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-9",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-10",
+  "orbit-adult-orbital-xanthogranulomatous-disease-figure-11",
+  "orbit-schwannoma-neurilemoma-figure-2",
+  "orbit-mandible-fractures-figure-1",
+  "orbit-mandible-fractures-figure-4",
+  "orbit-mandible-fractures-figure-15",
+]);
+
+const MANUALLY_REVIEWED_CARDS: Card[] = [
+  {
+    id: "face-anatomy-of-the-external-ear-figures-1-and-2",
+    documentTitle: "Anatomy of the External Ear",
+    documentSlug: "anatomy-of-the-external-ear",
+    category: "Face",
+    storagePath: "Face/Anatomy of the External Ear.pdf",
+    figureLabel: "Figures 1 and 2",
+    pageNumber: 1,
+    pageWidth: 612,
+    pageHeight: 792,
+    crop: { left: 0.08, top: 0.23, right: 0.62, bottom: 0.66 },
+    caption:
+      "Figures 1 and 2. Anatomy of the external ear. External ear superficial landmarks, medially and laterally.",
+    references: [],
+  },
+  {
+    id: "skin-conditions-eyelid-edema-figure-1",
+    documentTitle: "Eyelid edema",
+    documentSlug: "eyelid-edema",
+    category: "Skin Conditions",
+    storagePath: "Skin Conditions/Eyelid edema.pdf",
+    figureLabel: "Figure 1",
+    pageNumber: 3,
+    pageWidth: 612,
+    pageHeight: 792,
+    crop: { left: 0.06, top: 0.58, right: 0.84, bottom: 0.91 },
+    caption: "Figure 1. Yellowish discoloration of the skin in orbital xanthogranuloma.",
+    references: [],
+  },
+  {
+    id: "skin-conditions-eyelid-edema-figure-2",
+    documentTitle: "Eyelid edema",
+    documentSlug: "eyelid-edema",
+    category: "Skin Conditions",
+    storagePath: "Skin Conditions/Eyelid edema.pdf",
+    figureLabel: "Figure 2",
+    pageNumber: 4,
+    pageWidth: 612,
+    pageHeight: 792,
+    crop: { left: 0.06, top: 0.04, right: 0.84, bottom: 0.3 },
+    caption: "Figure 2. Cigarette paper-like skin in blepharochalasis.",
+    references: [],
+  },
+  {
+    id: "skin-conditions-eyelid-edema-figure-3",
+    documentTitle: "Eyelid edema",
+    documentSlug: "eyelid-edema",
+    category: "Skin Conditions",
+    storagePath: "Skin Conditions/Eyelid edema.pdf",
+    figureLabel: "Figure 3",
+    pageNumber: 4,
+    pageWidth: 612,
+    pageHeight: 792,
+    crop: { left: 0.06, top: 0.3, right: 0.84, bottom: 0.57 },
+    caption: "Figure 3. Eczema and lichenification in atopic dermatitis.",
+    references: [],
+  },
+  {
+    id: "skin-conditions-eyelid-edema-figure-4",
+    documentTitle: "Eyelid edema",
+    documentSlug: "eyelid-edema",
+    category: "Skin Conditions",
+    storagePath: "Skin Conditions/Eyelid edema.pdf",
+    figureLabel: "Figure 4",
+    pageNumber: 5,
+    pageWidth: 612,
+    pageHeight: 792,
+    crop: { left: 0.06, top: 0.26, right: 0.38, bottom: 0.54 },
+    caption: "Figure 4. Melkersson-Rosenthal syndrome.",
+    references: [],
+  },
+];
 
 function slugify(value: string) {
   return value
@@ -314,7 +410,27 @@ async function main() {
     console.log(`${pdf.title}: ${nextCards.length} image flashcards`);
   }
 
-  cards.sort((a, b) => {
+  const filteredCards = cards.filter(
+    (card) => !EXCLUDED_REFERENCE_ONLY_CARD_IDS.has(card.id),
+  );
+  filteredCards.push(...MANUALLY_REVIEWED_CARDS);
+  const marcusGunnFigure = filteredCards.find(
+    (card) =>
+      card.id ===
+      "eyelid-eyebrow-marcus-gunn-jaw-winking-syndrome-figure-2",
+  );
+  if (marcusGunnFigure) {
+    marcusGunnFigure.crop = {
+      left: 0.06,
+      top: 0.41,
+      right: 0.64,
+      bottom: 0.66,
+    };
+    marcusGunnFigure.caption =
+      "Figure 2. Difference in eyelid height measurement without and with the jaw properly fixated.";
+  }
+
+  filteredCards.sort((a, b) => {
     const categoryCmp = a.category.localeCompare(b.category);
     if (categoryCmp !== 0) return categoryCmp;
     const titleCmp = a.documentTitle.localeCompare(b.documentTitle);
@@ -323,8 +439,8 @@ async function main() {
     return a.figureLabel.localeCompare(b.figureLabel);
   });
 
-  fs.writeFileSync(OUTPUT_PATH, `${JSON.stringify(cards, null, 2)}\n`);
-  console.log(`Wrote ${cards.length} image flashcards to ${OUTPUT_PATH}`);
+  fs.writeFileSync(OUTPUT_PATH, `${JSON.stringify(filteredCards, null, 2)}\n`);
+  console.log(`Wrote ${filteredCards.length} image flashcards to ${OUTPUT_PATH}`);
 }
 
 main().catch((error) => {

@@ -1,5 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import {
+  ALL_IMAGE_LIBRARY_IMAGES,
+  COMPLETE_IMAGE_LIBRARY_PDF_PATH,
+  IMAGE_LIBRARY_DOWNLOAD_SECTIONS,
+} from "@/features/image-library/image-library";
 import ImageLibraryPage from "./page";
 
 vi.mock("next/image", () => ({
@@ -10,32 +15,44 @@ vi.mock("next/image", () => ({
 }));
 
 describe("ImageLibraryPage", () => {
-  it("shows the first ASOPRS section with every extracted figure and PDF export", () => {
-    render(<ImageLibraryPage />);
+  it("shows every ASOPRS section with all extracted figures and PDF export options", () => {
+    const { container } = render(<ImageLibraryPage />);
 
     expect(
       screen.getByRole("heading", { name: "Image Library" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Acquired Laxity")).toBeInTheDocument();
-    expect(screen.getAllByRole("img")).toHaveLength(24);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(7);
     expect(
-      screen.getByRole("checkbox", { name: /periorbital hollows/i }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole("button", { name: /download selected pdf \(24\)/i }),
-    ).toBeEnabled();
-    expect(screen.getByRole("link", { name: /download full pdf directly/i })).toHaveAttribute(
-      "href",
-      "/image-library/asoprs-image-library-acquired-laxity.pdf",
+      screen.getByRole("heading", { name: "Acquired Laxity", level: 2 }),
+    ).toBeInTheDocument();
+    expect(container.querySelectorAll("img")).toHaveLength(ALL_IMAGE_LIBRARY_IMAGES.length);
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(
+      IMAGE_LIBRARY_DOWNLOAD_SECTIONS.length,
     );
+
+    const acquiredLaxity = IMAGE_LIBRARY_DOWNLOAD_SECTIONS.find(
+      (section) => section.title === "Acquired Laxity",
+    );
+    expect(acquiredLaxity).toBeDefined();
+    const acquiredLaxityLabel = Array.from(container.querySelectorAll("label")).find(
+      (label) => label.textContent?.includes("Acquired Laxity"),
+    );
+    const acquiredLaxityCheckbox = acquiredLaxityLabel?.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(acquiredLaxityCheckbox).toBeChecked();
+    expect(
+      screen.getByText(`Download complete PDF (${ALL_IMAGE_LIBRARY_IMAGES.length})`),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("link", { name: /download complete pdf directly/i }),
+    ).toHaveAttribute("href", COMPLETE_IMAGE_LIBRARY_PDF_PATH);
     expect(screen.queryByText(/download powerpoint/i)).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /periorbital hollows/i }),
-    );
+    fireEvent.click(acquiredLaxityCheckbox);
     expect(
-      screen.getByRole("button", { name: /download selected pdf \(15\)/i }),
+      screen.getByText(
+        `Download selected PDF (${ALL_IMAGE_LIBRARY_IMAGES.length - acquiredLaxity!.figureCount})`,
+      ),
     ).toBeEnabled();
-  });
+  }, 15_000);
 });

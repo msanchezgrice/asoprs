@@ -1,16 +1,16 @@
 import { PDFDocument } from "pdf-lib";
 import {
-  ACQUIRED_LAXITY_DOWNLOAD_RESOURCES,
+  IMAGE_LIBRARY_DOWNLOAD_SECTIONS,
   selectedImagePageIndexes,
 } from "./image-library";
 
 export async function buildSelectedImageLibraryPdf(
   sourcePdfBytes: ArrayBuffer | Uint8Array,
-  resourceIds: string[],
+  sectionIds: string[],
 ) {
-  const pageIndexes = selectedImagePageIndexes(resourceIds);
+  const pageIndexes = selectedImagePageIndexes(sectionIds);
   if (pageIndexes.length === 0) {
-    throw new Error("Select at least one image-library subsection.");
+    throw new Error("Select at least one image-library section.");
   }
 
   const sourcePdf = await PDFDocument.load(sourcePdfBytes);
@@ -18,20 +18,20 @@ export async function buildSelectedImageLibraryPdf(
   const pages = await outputPdf.copyPages(sourcePdf, pageIndexes);
   for (const page of pages) outputPdf.addPage(page);
 
-  outputPdf.setTitle("ASOPRS Image Library - Selected Subsections");
+  outputPdf.setTitle("ASOPRS Image Library - Selected Sections");
   outputPdf.setAuthor("ASOPRS Study Portal");
-  outputPdf.setSubject("Selected images from Acquired Laxity");
+  outputPdf.setSubject("Selected images from the ASOPRS curriculum");
   return outputPdf.save();
 }
 
-export function selectedImageLibraryFilename(resourceIds: string[]) {
-  const allIds = ACQUIRED_LAXITY_DOWNLOAD_RESOURCES.map(
-    (resource) => resource.id,
+export function selectedImageLibraryFilename(sectionIds: string[]) {
+  const allIds = IMAGE_LIBRARY_DOWNLOAD_SECTIONS.map(
+    (section) => section.id,
   );
   const isFullSection =
-    resourceIds.length === allIds.length &&
-    allIds.every((resourceId) => resourceIds.includes(resourceId));
+    sectionIds.length === allIds.length &&
+    allIds.every((sectionId) => sectionIds.includes(sectionId));
   return isFullSection
-    ? "asoprs-image-library-acquired-laxity.pdf"
-    : "asoprs-image-library-acquired-laxity-selection.pdf";
+    ? "asoprs-image-library-complete.pdf"
+    : "asoprs-image-library-selected-sections.pdf";
 }

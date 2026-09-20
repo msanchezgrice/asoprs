@@ -8,22 +8,22 @@ import {
   buildSelectedImageLibraryPdf,
   selectedImageLibraryFilename,
 } from "./build-selected-image-library-pdf";
-import { ACQUIRED_LAXITY_DOWNLOAD_RESOURCES } from "./image-library";
+import { IMAGE_LIBRARY_DOWNLOAD_SECTIONS } from "./image-library";
 
 describe("selected image library PDF", () => {
-  it("copies only the selected subsection pages with their embedded images", async () => {
+  it("copies only the selected section pages with their embedded images", async () => {
     const sourceBytes = await fs.readFile(
       path.join(
         process.cwd(),
-        "public/image-library/asoprs-image-library-acquired-laxity.pdf",
+        "public/image-library/asoprs-image-library-complete.pdf",
       ),
     );
     const outputBytes = await buildSelectedImageLibraryPdf(sourceBytes, [
-      "floppy-eyelid-syndrome",
+      "eyelid-eyebrow-acquired-laxity",
     ]);
     const outputPdf = await PDFDocument.load(outputBytes);
 
-    expect(outputPdf.getPageCount()).toBe(4);
+    expect(outputPdf.getPageCount()).toBe(9);
     for (const page of outputPdf.getPages()) {
       const xObjects = page.node
         .Resources()
@@ -39,14 +39,14 @@ describe("selected image library PDF", () => {
   });
 
   it("uses stable filenames for full and partial exports", () => {
-    const allIds = ACQUIRED_LAXITY_DOWNLOAD_RESOURCES.map(
-      (resource) => resource.id,
+    const allIds = IMAGE_LIBRARY_DOWNLOAD_SECTIONS.map(
+      (section) => section.id,
     );
     expect(selectedImageLibraryFilename(allIds)).toBe(
-      "asoprs-image-library-acquired-laxity.pdf",
+      "asoprs-image-library-complete.pdf",
     );
     expect(selectedImageLibraryFilename(allIds.slice(0, 1))).toBe(
-      "asoprs-image-library-acquired-laxity-selection.pdf",
+      "asoprs-image-library-selected-sections.pdf",
     );
   });
 });
