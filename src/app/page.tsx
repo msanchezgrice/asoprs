@@ -20,6 +20,7 @@ import {
   type Document,
 } from "@/data/sample-documents";
 import { StudyPackGeneratorModal } from "@/components/study-pack/study-pack-generator-modal";
+import { PrivateQuestionSetsSection } from "@/features/private-question-sets/library-section";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   getAsoprsSortIndex,
@@ -410,6 +411,8 @@ export default function LibraryPage() {
           </button>
         </div>
       </header>
+
+      <PrivateQuestionSetsSection />
 
       {/* Stats strip */}
       <div className="mb-6 grid grid-cols-3 gap-3 md:grid-cols-6">
